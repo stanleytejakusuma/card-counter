@@ -90,8 +90,14 @@ function SectionContent({ id }: { id: Section }) {
             (only when idle — between hands).
           </P>
           <P>
-            Or click the seat badges in the scoreboard panel.
+            Or click the seat badges in the scoreboard panel. Right-click a seat
+            to mark it as occupied by another player (amber).
           </P>
+          <div className="flex items-center gap-3 text-[11px] my-1">
+            <span><span className="text-blue-400 font-bold">Blue</span> = yours</span>
+            <span><span className="text-amber-400 font-bold">Amber</span> = other player</span>
+            <span><span className="text-neutral-600 font-bold">Gray</span> = empty</span>
+          </div>
           <P>
             Each seat can have its own bet override — click the seat bet amount
             in the bet display to set it. Blank = use Kelly default.

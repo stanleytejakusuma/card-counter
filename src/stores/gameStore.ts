@@ -70,6 +70,7 @@ interface GameState {
   seats: PlayerSeat[];
   activeSeatIndex: number;
   playerSeatNumbers: number[];
+  occupiedSeatNumbers: number[];  // other players' seats (visual only)
 
   isWongedOut: boolean;
 
@@ -97,6 +98,7 @@ interface GameState {
   setBetOverride: (seatIndex: number, amount: number | null) => void;
   setPlayerSeats: (seatNumbers: number[]) => void;
   toggleSeat: (seatNumber: number) => void;
+  toggleOccupiedSeat: (seatNumber: number) => void;
   setActiveSeat: (index: number) => void;
   nextHandOrSeat: () => void;
   updateRoundOutcome: (roundIndex: number, seatIndex: number, handIndex: number, outcome: HandOutcome, netResult: number) => void;
@@ -120,6 +122,7 @@ export const useGameStore = create<GameState>()(
       seats: [{ seatNumber: 1, hands: [createEmptyHand()], activeHandIndex: 0, betOverride: null }],
       activeSeatIndex: 0,
       playerSeatNumbers: [1],
+      occupiedSeatNumbers: [],
       isWongedOut: false,
 
       currentShoeId: null,
@@ -586,11 +589,26 @@ export const useGameStore = create<GameState>()(
             : { seatNumber: n, hands: [createEmptyHand()], activeHandIndex: 0, betOverride: null };
         });
 
+        // Also remove from occupied if it was there
         set({
           playerSeatNumbers: newNumbers,
+          occupiedSeatNumbers: state.occupiedSeatNumbers.filter((n) => !newNumbers.includes(n)),
           seats: newSeats,
           activeSeatIndex: 0,
         });
+      },
+
+      toggleOccupiedSeat: (seatNumber: number) => {
+        const state = get();
+        if (seatNumber < 1 || seatNumber > 7) return;
+        // Can't mark your own seat as occupied
+        if (state.playerSeatNumbers.includes(seatNumber)) return;
+
+        if (state.occupiedSeatNumbers.includes(seatNumber)) {
+          set({ occupiedSeatNumbers: state.occupiedSeatNumbers.filter((n) => n !== seatNumber) });
+        } else {
+          set({ occupiedSeatNumbers: [...state.occupiedSeatNumbers, seatNumber].sort((a, b) => a - b) });
+        }
       },
 
       setActiveSeat: (index: number) => {
@@ -669,21 +687,24 @@ export const useGameStore = create<GameState>()(
           return {
             ...persisted,
             playerSeatNumbers: [1],
+            occupiedSeatNumbers: [],
             shoeRoundHistory: [],
             lastConfirmedRound: null,
           };
         }
         if (version < 3) {
-          // v2 had boxes: { cards: Card[] }[]
           const numBoxes = persisted.numBoxes ?? 1;
           return {
             ...persisted,
             playerSeatNumbers: Array.from({ length: numBoxes }, (_, i) => i + 1),
+            occupiedSeatNumbers: [],
             shoeRoundHistory: [],
             lastConfirmedRound: null,
           };
         }
-        return persisted;
+        if (!persisted.occupiedSeatNumbers) {
+          persisted.occupiedSeatNumbers = [];
+        }
       },
       partialize: (state) => ({
         runningCount: state.runningCount,
@@ -695,6 +716,7 @@ export const useGameStore = create<GameState>()(
         peakTrueCount: state.peakTrueCount,
         minTrueCount: state.minTrueCount,
         playerSeatNumbers: state.playerSeatNumbers,
+        occupiedSeatNumbers: state.occupiedSeatNumbers,
       }),
     },
   ),

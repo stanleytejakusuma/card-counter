@@ -10,7 +10,7 @@ function cardStr(card: Card): string {
 }
 
 export function Scoreboard() {
-  const { seats, activeSeatIndex, playerSeatNumbers, dealerUpcard, handPhase, lastConfirmedRound, shoeRoundHistory } = useGameStore();
+  const { seats, activeSeatIndex, playerSeatNumbers, occupiedSeatNumbers, dealerUpcard, handPhase, lastConfirmedRound, shoeRoundHistory } = useGameStore();
 
   const showDealer = dealerUpcard ?? lastConfirmedRound?.dealerUpcard ?? null;
 
@@ -33,30 +33,67 @@ export function Scoreboard() {
       <div className="flex justify-center gap-1">
         {ALL_SEATS.map((n) => {
           const isOurs = playerSeatNumbers.includes(n);
+          const isOccupied = occupiedSeatNumbers.includes(n);
           const seatIdx = seats.findIndex((s) => s.seatNumber === n);
           const isActive = isOurs && seatIdx === activeSeatIndex && handPhase === 'player';
+
+          function handleClick() {
+            if (isOurs) {
+              // Your seat — toggle off (idle only)
+              if (handPhase === 'idle') {
+                useGameStore.getState().toggleSeat(n);
+              }
+            } else if (isOccupied) {
+              // Occupied → empty
+              useGameStore.getState().toggleOccupiedSeat(n);
+            } else {
+              // Empty → try to claim as yours first (idle), else mark occupied
+              if (handPhase === 'idle' && playerSeatNumbers.length < 4) {
+                useGameStore.getState().toggleSeat(n);
+              } else {
+                useGameStore.getState().toggleOccupiedSeat(n);
+              }
+            }
+          }
+
+          function handleRightClick(e: React.MouseEvent) {
+            e.preventDefault();
+            if (isOurs) return; // can't mark your seat as occupied
+            useGameStore.getState().toggleOccupiedSeat(n);
+          }
+
+          let title: string;
+          if (isOurs) title = `Seat ${n} (yours) — click to remove`;
+          else if (isOccupied) title = `Seat ${n} (other player) — click to clear`;
+          else title = `Seat ${n} (empty) — click to claim, right-click for other player`;
 
           return (
             <button
               key={n}
-              onClick={() => {
-                if (handPhase === 'idle') {
-                  useGameStore.getState().toggleSeat(n);
-                }
-              }}
+              onClick={handleClick}
+              onContextMenu={handleRightClick}
               className={`w-8 h-8 rounded text-xs font-bold transition-all ${
                 isActive
                   ? 'bg-blue-700 border-2 border-blue-400 text-white'
                   : isOurs
                     ? 'bg-blue-900/60 border border-blue-600 text-blue-300'
-                    : 'bg-neutral-800/50 border border-neutral-700 text-neutral-600'
-              } ${handPhase === 'idle' ? 'cursor-pointer hover:border-blue-500' : ''}`}
-              title={isOurs ? `Seat ${n} (yours)` : `Seat ${n}`}
+                    : isOccupied
+                      ? 'bg-amber-900/40 border border-amber-700 text-amber-400'
+                      : 'bg-neutral-800/50 border border-neutral-700 text-neutral-600'
+              } cursor-pointer hover:brightness-125`}
+              title={title}
             >
               {n}
             </button>
           );
         })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex justify-center gap-3 text-[10px]">
+        <span className="text-blue-400">You</span>
+        <span className="text-amber-400">Other</span>
+        <span className="text-neutral-600">Empty</span>
       </div>
 
       {/* Current round — active seats' hands */}
