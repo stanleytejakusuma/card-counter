@@ -1,4 +1,5 @@
 import type { HandRecord, ShoeRecord, SessionRecord } from '../engine/historyTypes.js';
+import { syncRecordToFile, deleteSessionFile } from './fileSync.js';
 
 const DB_NAME = 'card-counter-history';
 const DB_VERSION = 1;
@@ -94,15 +95,15 @@ function txGetAll<T>(storeName: string): Promise<T[]> {
 // --- Writes ---
 
 export function putSession(record: SessionRecord): Promise<void> {
-  return txPut('sessions', record);
+  return txPut('sessions', record).then(() => syncRecordToFile('sessions', record));
 }
 
 export function putShoe(record: ShoeRecord): Promise<void> {
-  return txPut('shoes', record);
+  return txPut('shoes', record).then(() => syncRecordToFile('shoes', record));
 }
 
 export function putHand(record: HandRecord): Promise<void> {
-  return txPut('hands', record);
+  return txPut('hands', record).then(() => syncRecordToFile('hands', record));
 }
 
 export function updateHandOutcome(
@@ -125,7 +126,10 @@ export function updateHandOutcome(
             hand.netResult = netResult;
             store.put(hand);
           }
-          tx.oncomplete = () => resolve();
+          tx.oncomplete = () => {
+            if (hand) syncRecordToFile('hands', hand);
+            resolve();
+          };
         };
         tx.onerror = () => reject(tx.error);
       }),
@@ -143,7 +147,7 @@ export function updateShoeEnd(
       shoe.endTime = endTime;
       shoe.totalHands = totalHands;
       shoe.cardsDealt = cardsDealt;
-      return txPut('shoes', shoe);
+      return txPut('shoes', shoe).then(() => syncRecordToFile('shoes', shoe));
     }
   });
 }
@@ -168,7 +172,7 @@ export function updateSessionEnd(
       session.endingBankroll = endingBankroll;
       session.netPnL = endingBankroll - session.startingBankroll;
       Object.assign(session, stats);
-      return txPut('sessions', session);
+      return txPut('sessions', session).then(() => syncRecordToFile('sessions', session));
     }
   });
 }
@@ -224,7 +228,10 @@ export function deleteSession(sessionId: string): Promise<void> {
           }
         };
 
-        tx.oncomplete = () => resolve();
+        tx.oncomplete = () => {
+          deleteSessionFile(sessionId);
+          resolve();
+        };
         tx.onerror = () => reject(tx.error);
       }),
   );
