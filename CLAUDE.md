@@ -14,7 +14,7 @@ Blackjack decision HUD for live play. Real-time Hi-Lo counting, basic strategy +
 ```
 src/
   engine/          # Pure logic — zero React deps
-    types.ts       # Core types
+    types.ts       # Core types (PlayerHand, PlayerSeat, Card, etc.)
     historyTypes.ts # History record types (HandRecord, ShoeRecord, SessionRecord)
     counting.ts    # Hi-Lo, RC→TC, decks remaining
     hand.ts        # Hand total calculation (soft/hard/pair)
@@ -25,7 +25,7 @@ src/
     historyDb.ts   # Raw IndexedDB wrapper (singleton, lazy-open)
     historyRecorder.ts # Store subscriber → DB writes (fire-and-forget)
   stores/          # Zustand stores
-    gameStore.ts   # Running count, hand state, card history, shoe tracking
+    gameStore.ts   # Running count, seats/hands, split/double, shoe tracking, round history
     sessionStore.ts # Bankroll, bet limits, outcome recording, session stats
     settingsStore.ts # Game rules, stealth mode, wong thresholds
     historyViewStore.ts # History viewer navigation state
@@ -33,9 +33,11 @@ src/
   components/
     HUD/           # TrueCountDisplay, BetDisplay, RunningCount, DecksRemaining
     Strategy/      # StrategyAdvice
-    Input/         # CardFeedback, HandDisplay, OutcomePrompt
+    Input/         # CardButtons, CardFeedback, HandDisplay, OutcomePrompt
     Session/       # SessionBar, ShoeProgress
-    Layout/        # HUDLayout, StealthOverlay
+    Layout/        # HUDLayout (3-column), StealthOverlay
+    Scoreboard/    # Scoreboard (table visual), RoundHistory (shoe history)
+    Guide/         # HowToUse (tabbed reference panel)
     History/       # HistoryOverlay, SessionListView, SessionDetailView, ShoeDetailView, HandDetailView
   utils/           # formatters (currency, TC, date, duration, outcome)
 ```
@@ -47,19 +49,23 @@ src/
 | `0`, `J`, `Q`, `K` | Input 10-value card |
 | `1`-`9` | Input card (1 = Ace) |
 | `A` | Input Ace |
-| `Tab` | Toggle dealer/player input |
+| `Tab` | Advance: phase → hand → seat → table |
 | `Enter` / `Space` | Confirm hand, next hand |
-| `Backspace` | Undo last card |
+| `Backspace` | Undo last card (un-split / un-double aware) |
 | `Ctrl+Z` | Undo entire current hand |
+| `P` | Split hand (pair, 2 cards, max 4 hands/seat) |
+| `D` | Double down (2 cards, marks 2x, auto-advance after next card) |
 | `S` | New shoe (reset count) |
 | `W` | Toggle wong in/out |
+| `Shift+1`-`Shift+7` | Toggle seat on/off (idle phase only, max 4 seats) |
 | `H` | Toggle history viewer |
 | `Escape` | Toggle stealth mode (or close history viewer) |
-| `[` | Record win (after confirm) |
-| `]` | Record loss (after confirm) |
-| `\` | Record push (after confirm) |
-| `=` | Record blackjack (after confirm) |
-| `-` | Record surrender (after confirm) |
+| `[` | Record win |
+| `]` | Record loss |
+| `\` | Record push |
+| `=` | Record blackjack (3:2) |
+| `/` | Record even money (1:1, BJ vs dealer Ace) |
+| `-` | Record surrender |
 | `Arrow Up/Down` | Navigate history list |
 
 ## Commands
@@ -75,8 +81,13 @@ src/
 - S17 tables verified against Wizard of Odds 8-deck charts
 - True count displayed to 1 decimal, raw float used for threshold comparisons
 - All card inputs update running count regardless of hand phase
-- Kelly defaults: 1/4 Kelly, $20 unit, $20-500 bet range
+- Kelly defaults: 1/4 Kelly, $1 unit, $5-100 bet range
 - Browser title: "Calculator" (stealth)
 - History writes are async fire-and-forget (never block input flow)
 - Outcome keys only active during awaitingOutcome state; card keys clear it silently
 - History viewer blocks all game keys while open
+- 7-seat table model (Evolution Gaming), player occupies up to 4 seats
+- Each seat supports up to 4 hands from splits
+- Per-seat bet overrides (null = Kelly default)
+- Even money: BJ vs dealer Ace, 1:1 payout
+- Split aces auto-advance after 1 card each
