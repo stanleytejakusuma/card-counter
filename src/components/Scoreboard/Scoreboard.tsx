@@ -3,7 +3,7 @@ import { calculateHandTotal } from '../../engine/hand.js';
 import type { Card } from '../../engine/types.js';
 import { RoundHistory } from './RoundHistory.js';
 
-const ALL_SEATS = [1, 2, 3, 4, 5, 6, 7] as const;
+const ALL_SEATS = [7, 6, 5, 4, 3, 2, 1] as const;
 
 function cardStr(card: Card): string {
   return card.rank === '10' ? 'T' : card.rank;

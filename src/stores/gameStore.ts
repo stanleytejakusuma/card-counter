@@ -74,6 +74,8 @@ interface GameState {
 
   isWongedOut: boolean;
 
+  _lastCardSeatIndex: number | null;
+
   currentShoeId: string | null;
   shoeHandCount: number;
   lastConfirmedRound: LastConfirmedRound | null;
@@ -124,6 +126,8 @@ export const useGameStore = create<GameState>()(
       playerSeatNumbers: [1],
       occupiedSeatNumbers: [],
       isWongedOut: false,
+
+      _lastCardSeatIndex: null,
 
       currentShoeId: null,
       shoeHandCount: 0,
@@ -185,29 +189,39 @@ export const useGameStore = create<GameState>()(
             i === state.activeSeatIndex ? newSeat : s,
           );
           updates.seats = newSeats;
+          updates._lastCardSeatIndex = state.activeSeatIndex;
 
-          // Auto-advance logic
-          const shouldAdvance =
-            (newHand.doubled && newHand.cards.length === 3) ||
-            (newHand.fromSplit && hand.cards.length === 0 && newHand.cards[0]?.rank === 'A' && newHand.cards.length === 2);
+          const allHad2Before = state.seats.every((s) => s.hands[0].cards.length >= 2);
 
-          if (shouldAdvance) {
-            // Try next hand in this seat
-            if (seat.activeHandIndex < newHands.length - 1) {
-              const advSeat = { ...newSeat, activeHandIndex: seat.activeHandIndex + 1 };
-              updates.seats = newSeats.map((s, i) =>
-                i === state.activeSeatIndex ? advSeat : s,
-              );
-            } else if (state.activeSeatIndex < state.seats.length - 1) {
-              // Next seat
-              updates.activeSeatIndex = state.activeSeatIndex + 1;
-              const nextSeat = state.seats[state.activeSeatIndex + 1];
-              const resetSeat = { ...nextSeat, activeHandIndex: 0 };
-              updates.seats = (updates.seats ?? newSeats).map((s, i) =>
-                i === state.activeSeatIndex + 1 ? resetSeat : s,
-              );
+          if (!allHad2Before) {
+            // DEAL MODE — round-robin across seats
+            const allHave2Now = newSeats.every((s) => s.hands[0].cards.length >= 2);
+            if (allHave2Now) {
+              updates.activeSeatIndex = 0; // park on first seat for play
+            } else {
+              updates.activeSeatIndex = (state.activeSeatIndex + 1) % state.seats.length;
             }
-            // else: stay (last hand, last seat)
+          } else {
+            // PLAY MODE — existing double/split auto-advance
+            const shouldAdvance =
+              (newHand.doubled && newHand.cards.length === 3) ||
+              (newHand.fromSplit && hand.cards.length === 0 && newHand.cards[0]?.rank === 'A' && newHand.cards.length === 2);
+
+            if (shouldAdvance) {
+              if (seat.activeHandIndex < newHands.length - 1) {
+                const advSeat = { ...newSeat, activeHandIndex: seat.activeHandIndex + 1 };
+                updates.seats = newSeats.map((s, i) =>
+                  i === state.activeSeatIndex ? advSeat : s,
+                );
+              } else if (state.activeSeatIndex < state.seats.length - 1) {
+                updates.activeSeatIndex = state.activeSeatIndex + 1;
+                const nextSeat = state.seats[state.activeSeatIndex + 1];
+                const resetSeat = { ...nextSeat, activeHandIndex: 0 };
+                updates.seats = (updates.seats ?? newSeats).map((s, i) =>
+                  i === state.activeSeatIndex + 1 ? resetSeat : s,
+                );
+              }
+            }
           }
         }
 
@@ -230,6 +244,31 @@ export const useGameStore = create<GameState>()(
         if (state.handPhase === 'table' && state.tableCards.length > 0) {
           updates.tableCards = state.tableCards.slice(0, -1);
         } else if (state.handPhase === 'player') {
+          // If last card went to a different seat (deal-mode wrap), undo from that seat
+          const undoSeatIdx = (state._lastCardSeatIndex !== null && state._lastCardSeatIndex !== state.activeSeatIndex)
+            ? state._lastCardSeatIndex
+            : state.activeSeatIndex;
+          updates._lastCardSeatIndex = null;
+
+          if (undoSeatIdx !== state.activeSeatIndex) {
+            // Deal-mode undo: remove last card from the seat that received it, restore that seat as active
+            const targetSeat = state.seats[undoSeatIdx];
+            const targetHand = targetSeat.hands[targetSeat.activeHandIndex];
+            if (targetHand.cards.length > 0) {
+              const newHand = { ...targetHand, cards: targetHand.cards.slice(0, -1) };
+              const newHands = targetSeat.hands.map((h, j) =>
+                j === targetSeat.activeHandIndex ? newHand : h,
+              );
+              const newSeat: PlayerSeat = { ...targetSeat, hands: newHands };
+              updates.seats = state.seats.map((s, i) =>
+                i === undoSeatIdx ? newSeat : s,
+              );
+              updates.activeSeatIndex = undoSeatIdx;
+            }
+            set(updates);
+            return;
+          }
+
           const seat = state.seats[state.activeSeatIndex];
           const hand = seat.hands[seat.activeHandIndex];
 
@@ -349,6 +388,7 @@ export const useGameStore = create<GameState>()(
           dealerUpcard: null,
           seats: createEmptySeats(state.playerSeatNumbers),
           activeSeatIndex: 0,
+          _lastCardSeatIndex: null,
         });
       },
 
@@ -427,6 +467,7 @@ export const useGameStore = create<GameState>()(
           lastConfirmedRound,
           shoeHandCount: state.shoeHandCount + totalHands,
           shoeRoundHistory: newHistory,
+          _lastCardSeatIndex: null,
         });
       },
 
@@ -439,6 +480,7 @@ export const useGameStore = create<GameState>()(
           return old ? { ...s, betOverride: old.betOverride } : s;
         }),
         activeSeatIndex: 0,
+        _lastCardSeatIndex: null,
       })),
 
       setHandPhase: (phase: HandPhase) => {
@@ -471,6 +513,7 @@ export const useGameStore = create<GameState>()(
           peakTrueCount: 0,
           minTrueCount: 0,
           shoeRoundHistory: [],
+          _lastCardSeatIndex: null,
         })),
 
       updateTrueCountExtremes: (tc: number) => {

@@ -47,8 +47,33 @@ export function StrategyAdvice() {
       : `Seat ${seat.seatNumber}`)
     : null;
 
+  // Compact advice for non-active seats (multi-seat only)
+  const otherSeatsAdvice = multiSeat
+    ? seats
+        .map((s, si) => {
+          if (si === activeSeatIndex) return null;
+          const h = s.hands[s.activeHandIndex];
+          if (!h || h.cards.length < 2) return null;
+          const a = getStrategyAdvice(h.cards, dealerUpcard, tc, rules);
+          return { seatNumber: s.seatNumber, action: a.action, doubled: h.doubled };
+        })
+        .filter(Boolean) as { seatNumber: number; action: StrategyAction; doubled: boolean }[]
+    : [];
+
   return (
     <div className="text-center py-2">
+      {otherSeatsAdvice.length > 0 && (
+        <div className="flex justify-center gap-3 mb-2">
+          {otherSeatsAdvice.map((o) => (
+            <span key={o.seatNumber} className="text-xs">
+              <span className="text-neutral-500">S{o.seatNumber}: </span>
+              <span className={o.doubled ? 'text-blue-400' : ACTION_COLORS[o.action]}>
+                {o.doubled ? '2x' : ACTION_LABELS[o.action]}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
       {seatLabel && (
         <div className="text-xs text-neutral-500 mb-1">{seatLabel}</div>
       )}
