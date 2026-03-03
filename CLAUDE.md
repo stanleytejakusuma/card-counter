@@ -91,3 +91,13 @@ src/
 - Per-seat bet overrides (null = Kelly default)
 - Even money: BJ vs dealer Ace, 1:1 payout
 - Split aces auto-advance after 1 card each
+
+## Memory Index
+
+<!-- Auto-managed by /memory command. Keywords link to Cipher memories. -->
+
+### Persistence
+- `card-counter-file-persistence`: Vite dev middleware persists localStorage/IndexedDB to JSON files in data/. Hydrate on boot → write-through on change → restore on browser clear.
+
+### UI Features
+- `card-counter-occupied-seats`: Scoreboard seats have 3 states (blue=yours, amber=other player, gray=empty). Right-click toggles occupied. gameStore.occupiedSeatNumbers[].
