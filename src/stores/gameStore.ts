@@ -1023,7 +1023,7 @@ export const useGameStore = create<GameState>()(
         const hand = seat.hands[seat.activeHandIndex];
 
         if (hand.cards.length !== 2) return;
-        if (seat.hands.length >= 4) return;
+        if (seat.hands.length >= 2) return;
 
         // Check if pair (same value)
         const total = calculateHandTotal(hand.cards);

@@ -57,7 +57,7 @@ export function CardButtons() {
 
   // Check for split/double eligibility (only for player seats, not occupied)
   const canSplit = !isOccupiedSeatActive && handPhase === 'player' && activeHand && activeHand.cards.length === 2 &&
-    !activeHand.doubled && activeSeat.hands.length < 4 &&
+    !activeHand.doubled && activeSeat.hands.length < 2 &&
     calculateHandTotal(activeHand.cards).isPair;
   const canDouble = !isOccupiedSeatActive && handPhase === 'player' && activeHand && activeHand.cards.length === 2 &&
     !activeHand.doubled;
