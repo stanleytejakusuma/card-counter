@@ -16,7 +16,7 @@ export function HUDLayout({ children, guide, scoreboard }: { children: ReactNode
         </div>
         {/* Right column: scoreboard — visible at lg (1024px+) */}
         {scoreboard && (
-          <div className="hidden lg:block w-80 flex-shrink-0 sticky top-3">
+          <div className="hidden lg:block w-80 flex-shrink-0 sticky top-3 max-h-[calc(100vh-1.5rem)] overflow-y-auto">
             {scoreboard}
           </div>
         )}
