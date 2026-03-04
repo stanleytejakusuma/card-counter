@@ -101,18 +101,21 @@ export function initHistoryRecorder() {
 
           putHand(record).catch(console.error);
 
-          const label = seat.hands.length > 1
-            ? `Seat ${seat.seatNumber}.${j + 1}`
-            : `Seat ${seat.seatNumber}`;
+          // Only track outcomes/bets for player seats (not occupied/other)
+          if (state.playerSeatNumbers.includes(seat.seatNumber)) {
+            const label = seat.hands.length > 1
+              ? `Seat ${seat.seatNumber}.${j + 1}`
+              : `Seat ${seat.seatNumber}`;
 
-          pendingOutcomes.push({
-            handId: hand.id,
-            betAmount: actualBet,
-            seatIndex: i,
-            seatNumber: seat.seatNumber,
-            handIndex: j,
-            label,
-          });
+            pendingOutcomes.push({
+              handId: hand.id,
+              betAmount: actualBet,
+              seatIndex: i,
+              seatNumber: seat.seatNumber,
+              handIndex: j,
+              label,
+            });
+          }
 
           handCounter++;
         }

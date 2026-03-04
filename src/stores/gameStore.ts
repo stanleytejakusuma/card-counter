@@ -913,7 +913,9 @@ export const useGameStore = create<GameState>()(
                 doubled: h.doubled,
                 fromSplit: h.fromSplit,
                 total: calculateHandTotal(h.cards).total,
-                outcome: canDetermineOutcome ? determineOutcome(h.cards, dealerCards, h.fromSplit) : undefined,
+                outcome: canDetermineOutcome && state.playerSeatNumbers.includes(s.seatNumber)
+                  ? determineOutcome(h.cards, dealerCards, h.fromSplit)
+                  : undefined,
               })),
               betAmount: 0, // Will be set by historyRecorder
             })),
