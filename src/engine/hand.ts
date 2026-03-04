@@ -1,4 +1,5 @@
 import type { Card, HandTotal, Rank } from './types.js';
+import type { HandOutcome } from './historyTypes.js';
 
 export function calculateHandTotal(cards: Card[]): HandTotal {
   if (cards.length === 0) {
@@ -47,4 +48,25 @@ export function calculateHandTotal(cards: Card[]): HandTotal {
     isBusted: bestTotal > 21,
     isBlackjack,
   };
+}
+
+/**
+ * Determine hand outcome by comparing player and dealer totals.
+ * Split hands cannot be natural blackjack.
+ */
+export function determineOutcome(playerCards: Card[], dealerCards: Card[], fromSplit: boolean): HandOutcome {
+  const player = calculateHandTotal(playerCards);
+  const dealer = calculateHandTotal(dealerCards);
+
+  if (player.isBusted) return 'loss';
+
+  const playerBJ = player.isBlackjack && !fromSplit;
+  const dealerBJ = dealer.isBlackjack;
+
+  if (dealer.isBusted) return playerBJ ? 'blackjack' : 'win';
+  if (playerBJ && !dealerBJ) return 'blackjack';
+  if (playerBJ && dealerBJ) return 'push';
+
+  if (player.total === dealer.total) return 'push';
+  return player.total > dealer.total ? 'win' : 'loss';
 }

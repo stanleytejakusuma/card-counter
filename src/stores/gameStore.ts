@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Card, HandPhase, PlayerHand, PlayerSeat, Rank } from '../engine/types.js';
 import type { HandOutcome } from '../engine/historyTypes.js';
 import { createCard, getCardCountValue } from '../engine/counting.js';
-import { calculateHandTotal } from '../engine/hand.js';
+import { calculateHandTotal, determineOutcome } from '../engine/hand.js';
 import { useSessionStore } from './sessionStore.js';
 
 let _nextId = 0;
@@ -898,9 +898,11 @@ export const useGameStore = create<GameState>()(
           }
         }
 
-        // Push RoundSnapshot (outcomes pending)
+        // Push RoundSnapshot with auto-determined outcomes
         let newHistory = state.shoeRoundHistory;
         if (lastConfirmedRound && state.dealerUpcard) {
+          const dealerCards = [state.dealerUpcard, ...state._dealerHits];
+          const canDetermineOutcome = dealerCards.length >= 2;
           const snapshot: RoundSnapshot = {
             dealerUpcard: state.dealerUpcard,
             seats: lastConfirmedRound.seats.map((s) => ({
@@ -911,6 +913,7 @@ export const useGameStore = create<GameState>()(
                 doubled: h.doubled,
                 fromSplit: h.fromSplit,
                 total: calculateHandTotal(h.cards).total,
+                outcome: canDetermineOutcome ? determineOutcome(h.cards, dealerCards, h.fromSplit) : undefined,
               })),
               betAmount: 0, // Will be set by historyRecorder
             })),

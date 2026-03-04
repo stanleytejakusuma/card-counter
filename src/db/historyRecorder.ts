@@ -45,6 +45,10 @@ export function initHistoryRecorder() {
         unitSize: session.unitSize,
       });
 
+      // Get snapshot outcomes (computed in confirmHand)
+      const snapshotHistory = state.shoeRoundHistory;
+      const lastSnapshot = snapshotHistory.length > 0 ? snapshotHistory[snapshotHistory.length - 1] : null;
+
       const pendingOutcomes: { handId: string; betAmount: number; seatIndex: number; seatNumber: number; handIndex: number; label: string }[] = [];
       let hasDeviation = false;
       let handCounter = 0;
@@ -68,6 +72,9 @@ export function initHistoryRecorder() {
 
           if (advice.isDeviation) hasDeviation = true;
 
+          // Use auto-determined outcome from snapshot if available
+          const snapshotOutcome = lastSnapshot?.seats[i]?.hands[j]?.outcome ?? null;
+
           const record: HandRecord = {
             id: hand.id,
             sessionId,
@@ -82,7 +89,7 @@ export function initHistoryRecorder() {
             decksRemaining: dr,
             strategyAdvice: adviceStr,
             betRecommendation: kellyBet.amount,
-            outcome: null,
+            outcome: snapshotOutcome,
             betAmount: actualBet,
             netResult: null,
             boxIndex: i,
@@ -111,7 +118,14 @@ export function initHistoryRecorder() {
         }
       }
 
-      if (pendingOutcomes.length > 0) {
+      // Auto-record outcomes if available, otherwise prompt UI
+      if (pendingOutcomes.length > 0 && lastSnapshot && pendingOutcomes.every((p) => lastSnapshot.seats[p.seatIndex]?.hands[p.handIndex]?.outcome)) {
+        session.setAwaitingOutcomes(pendingOutcomes);
+        for (const pending of pendingOutcomes) {
+          const outcome = lastSnapshot.seats[pending.seatIndex].hands[pending.handIndex].outcome!;
+          session.recordOutcome(outcome);
+        }
+      } else if (pendingOutcomes.length > 0) {
         session.setAwaitingOutcomes(pendingOutcomes);
       }
 
