@@ -48,7 +48,7 @@ export function HandDisplay() {
   if (!hasHand && handPhase !== 'table') {
     return (
       <div className="text-neutral-600 text-sm">
-        Tap a card to start hand{multiSeat ? ` (${playerSeatNumbers.length} seats: ${playerSeatNumbers.join(',')})` : ''}
+        Tap a card to deal{multiSeat ? ` (${playerSeatNumbers.length} seats: ${playerSeatNumbers.join(',')})` : ''}
       </div>
     );
   }
@@ -67,6 +67,7 @@ export function HandDisplay() {
                   </span>
                 )}
                 You: <span className="font-bold">{playerTotal.total}</span>
+                {playerTotal.total > 21 && <span className="text-red-400 text-sm ml-1">BUST</span>}
                 {playerTotal.isSoft && <span className="text-neutral-500 text-sm ml-1">(soft)</span>}
                 {activeHand?.doubled && <span className="text-blue-400 text-sm ml-1">2x</span>}
                 {' vs '}
@@ -135,17 +136,17 @@ export function HandDisplay() {
       {/* Table cards */}
       {tableCards.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap text-xs">
-          <span className="text-cyan-400/70">Table:</span>
+          <span className="text-red-400/70">Dealer:</span>
           {tableCards.map((c, i) => (
-            <CardChip key={i} card={c} color="text-cyan-300" />
+            <CardChip key={i} card={c} color="text-red-300" />
           ))}
         </div>
       )}
 
       {/* Table mode hint */}
       {handPhase === 'table' && tableCards.length === 0 && !hasHand && (
-        <div className="text-cyan-400/70 text-sm">
-          Count other players' cards & dealer hits
+        <div className="text-red-400/70 text-sm">
+          Enter dealer cards, then End Round
         </div>
       )}
     </div>

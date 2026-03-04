@@ -1,4 +1,3 @@
-import { useKeyboard } from './hooks/useKeyboard.js';
 import { HUDLayout } from './components/Layout/HUDLayout.js';
 import { StealthOverlay } from './components/Layout/StealthOverlay.js';
 import { SessionBar } from './components/Session/SessionBar.js';
@@ -54,8 +53,6 @@ function InsuranceIndicator() {
 }
 
 export default function App() {
-  useKeyboard();
-
   return (
     <>
       <StealthOverlay />
@@ -90,9 +87,9 @@ export default function App() {
         {/* Card & action buttons */}
         <CardButtons />
 
-        {/* Keyboard help */}
+        {/* Flow hint */}
         <div className="text-center text-neutral-700 text-[10px] mt-2">
-          Keys: 0-9/A/J/Q/K | Tab: phase/hand/seat | P: split | D: double | Shift+1-7: seats | Enter: confirm | S: shoe | H: history | Esc: stealth
+          Deal → Play → Table → End Round
         </div>
       </HUDLayout>
     </>

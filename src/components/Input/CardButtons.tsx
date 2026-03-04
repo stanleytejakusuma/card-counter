@@ -39,6 +39,10 @@ export function CardButtons() {
   const awaitingOutcome = useSessionStore((s) => s.awaitingOutcome);
   const lateSurrender = useSettingsStore((s) => s.rules.lateSurrender);
 
+  const _activePlaySeat = useGameStore((s) => s._activePlaySeat);
+  const occupiedSeatNumbers = useGameStore((s) => s.occupiedSeatNumbers);
+  const _splitDealInProgress = useGameStore((s) => s._splitDealInProgress);
+
   const multiSeat = playerSeatNumbers.length > 1;
   const activeSeat = seats[activeSeatIndex];
   const activeHand = activeSeat?.hands[activeSeat?.activeHandIndex ?? 0];
@@ -49,11 +53,13 @@ export function CardButtons() {
   if (dealerWasAce) outcomes.push(EM_OUTCOME);
   if (lateSurrender) outcomes.push(SR_OUTCOME);
 
-  // Check for split/double eligibility
-  const canSplit = handPhase === 'player' && activeHand && activeHand.cards.length === 2 &&
+  const isOccupiedSeatActive = _activePlaySeat > 0 && occupiedSeatNumbers.includes(_activePlaySeat);
+
+  // Check for split/double eligibility (only for player seats, not occupied)
+  const canSplit = !isOccupiedSeatActive && handPhase === 'player' && activeHand && activeHand.cards.length === 2 &&
     !activeHand.doubled && activeSeat.hands.length < 4 &&
     calculateHandTotal(activeHand.cards).isPair;
-  const canDouble = handPhase === 'player' && activeHand && activeHand.cards.length === 2 &&
+  const canDouble = !isOccupiedSeatActive && handPhase === 'player' && activeHand && activeHand.cards.length === 2 &&
     !activeHand.doubled;
 
   function handleCardClick(rank: Rank) {
@@ -64,13 +70,9 @@ export function CardButtons() {
     useSessionStore.getState().startSession();
   }
 
-  function handleConfirm() {
-    const { handPhase, confirmHand } = useGameStore.getState();
-    if (handPhase !== 'idle' && handPhase !== 'table') {
-      confirmHand();
-      useSessionStore.getState().incrementHands();
-    }
-  }
+  const activeSeatReady = handPhase === 'player' &&
+    !_splitDealInProgress &&
+    (isOccupiedSeatActive || (activeHand && activeHand.cards.length >= 2));
 
   function handleUndo() {
     useGameStore.getState().undoLastCard();
@@ -80,16 +82,44 @@ export function CardButtons() {
     useGameStore.getState().newShoe();
   }
 
-  function handleNextHand() {
-    useGameStore.getState().nextHand();
+  function handleNext() {
+    const game = useGameStore.getState();
+    const playOrder = [...game.playerSeatNumbers, ...game.occupiedSeatNumbers].sort((a, b) => a - b);
+    const currentSeat = game._activePlaySeat;
+
+    // If activePlaySeat is a player seat, check for split hands first
+    if (currentSeat > 0 && game.playerSeatNumbers.includes(currentSeat)) {
+      const seatIdx = game.seats.findIndex((s) => s.seatNumber === currentSeat);
+      if (seatIdx >= 0) {
+        const seat = game.seats[seatIdx];
+        if (seat.activeHandIndex < seat.hands.length - 1) {
+          // Advance within split hands
+          game.nextHandOrSeat();
+          return;
+        }
+      }
+    }
+
+    // Advance to next seat in play order
+    const currentIdx = playOrder.indexOf(currentSeat);
+    if (currentIdx >= 0 && currentIdx < playOrder.length - 1) {
+      const nextSeatNum = playOrder[currentIdx + 1];
+      const nextPlayerIdx = game.seats.findIndex((s) => s.seatNumber === nextSeatNum);
+      useGameStore.setState({
+        _activePlaySeat: nextSeatNum,
+        ...(nextPlayerIdx >= 0 ? { activeSeatIndex: nextPlayerIdx } : {}),
+      });
+    } else {
+      // Last seat — transition to table phase
+      game.setHandPhase('table');
+    }
   }
 
-  function handleTableMode() {
-    useGameStore.getState().setHandPhase('table');
-  }
-
-  function handleNextHandOrSeat() {
-    useGameStore.getState().nextHandOrSeat();
+  function handleEndRound() {
+    const game = useGameStore.getState();
+    game.confirmHand();
+    useSessionStore.getState().incrementHands();
+    game.nextHand();
   }
 
   function handleOutcome(outcome: HandOutcome) {
@@ -128,23 +158,17 @@ export function CardButtons() {
     );
   }
 
-  // Has more hands/seats to advance to?
-  const hasMoreHands = activeSeat && (
-    activeSeat.activeHandIndex < activeSeat.hands.length - 1 ||
-    activeSeatIndex < seats.length - 1
-  );
-
   return (
     <div className="space-y-2">
       {/* Phase indicator for table mode */}
       {handPhase === 'table' && (
-        <div className="text-center text-xs text-cyan-400 font-semibold">
-          Table Cards — count other players & dealer
+        <div className="text-center text-xs text-red-400 font-semibold">
+          Dealer — enter dealer cards
         </div>
       )}
 
-      {/* Seat/hand selector tabs */}
-      {(multiSeat || (activeSeat && activeSeat.hands.length > 1)) && handPhase === 'player' && (
+      {/* Seat/hand selector tabs — when active seat has 2+ cards */}
+      {(multiSeat || (activeSeat && activeSeat.hands.length > 1)) && activeSeatReady && (
         <div className="flex gap-1 justify-center flex-wrap">
           {seats.map((seat, si) =>
             seat.hands.map((hand, hi) => {
@@ -157,7 +181,6 @@ export function CardButtons() {
                   key={`${si}-${hi}`}
                   onClick={() => {
                     useGameStore.getState().setActiveSeat(si);
-                    // Also set hand index
                     const s = useGameStore.getState().seats[si];
                     if (s) {
                       const newSeats = useGameStore.getState().seats.map((seat, i) =>
@@ -181,15 +204,15 @@ export function CardButtons() {
         </div>
       )}
 
-      {/* Split/Double action buttons */}
-      {handPhase === 'player' && (canSplit || canDouble) && (
+      {/* Split/Double action buttons — when active seat has 2+ cards */}
+      {activeSeatReady && (canSplit || canDouble) && (
         <div className="flex gap-1.5 justify-center">
           {canSplit && (
             <button
               onClick={() => useGameStore.getState().splitHand()}
               className="px-4 py-1.5 bg-purple-900/40 border border-purple-700 rounded-lg text-xs font-bold text-purple-300 uppercase hover:bg-purple-800/40 active:scale-95 transition-all"
             >
-              Split (P)
+              Split
             </button>
           )}
           {canDouble && (
@@ -197,7 +220,7 @@ export function CardButtons() {
               onClick={() => useGameStore.getState().doubleDown()}
               className="px-4 py-1.5 bg-blue-900/40 border border-blue-700 rounded-lg text-xs font-bold text-blue-300 uppercase hover:bg-blue-800/40 active:scale-95 transition-all"
             >
-              Double (D)
+              Double
             </button>
           )}
         </div>
@@ -211,7 +234,7 @@ export function CardButtons() {
             onClick={() => handleCardClick(rank)}
             className={`border rounded-lg py-3 text-sm font-bold font-mono active:scale-95 transition-all ${
               handPhase === 'table'
-                ? 'bg-cyan-900/30 border-cyan-800 text-cyan-200 hover:bg-cyan-800/40 hover:border-cyan-600'
+                ? 'bg-red-900/30 border-red-800 text-red-200 hover:bg-red-800/40 hover:border-red-600'
                 : 'bg-neutral-800/80 border-neutral-700 text-neutral-200 hover:bg-neutral-700/80 hover:border-neutral-500'
             }`}
           >
@@ -220,57 +243,69 @@ export function CardButtons() {
         ))}
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons — 4-col grid, layout varies by phase */}
       <div className="grid grid-cols-4 gap-1.5">
         {handPhase === 'table' ? (
-          <button
-            onClick={handleNextHand}
-            className="col-span-2 bg-blue-900/50 border border-blue-600 rounded-lg py-2.5 text-xs font-bold text-blue-300 uppercase hover:bg-blue-800/50 active:scale-95 transition-all"
-          >
-            Next Hand
-          </button>
-        ) : (
+          /* Table phase: End Round (x2) + Undo + New Shoe */
           <>
             <button
-              onClick={handleConfirm}
-              disabled={handPhase === 'idle'}
-              className={`border rounded-lg py-2.5 text-xs font-bold uppercase transition-all active:scale-95 ${
-                handPhase !== 'idle'
-                  ? 'bg-blue-900/50 border-blue-600 text-blue-300 hover:bg-blue-800/50'
-                  : 'bg-neutral-900/50 border-neutral-800 text-neutral-600 cursor-not-allowed'
-              }`}
+              onClick={handleEndRound}
+              className="col-span-2 bg-green-900/50 border border-green-600 rounded-lg py-2.5 text-xs font-bold text-green-300 uppercase hover:bg-green-800/50 active:scale-95 transition-all"
             >
-              Confirm
+              End Round
             </button>
-            {hasMoreHands && handPhase === 'player' ? (
-              <button
-                onClick={handleNextHandOrSeat}
-                className="bg-purple-900/40 border border-purple-700 rounded-lg py-2.5 text-xs font-bold text-purple-300 uppercase hover:bg-purple-800/40 hover:border-purple-500 active:scale-95 transition-all"
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                onClick={handleTableMode}
-                className="bg-cyan-900/30 border border-cyan-800 rounded-lg py-2.5 text-xs font-bold text-cyan-400 uppercase hover:bg-cyan-800/40 hover:border-cyan-600 active:scale-95 transition-all"
-              >
-                Table
-              </button>
-            )}
+            <button
+              onClick={handleUndo}
+              className="bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
+            >
+              Undo
+            </button>
+            <button
+              onClick={handleNewShoe}
+              className="bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
+            >
+              New Shoe
+            </button>
+          </>
+        ) : activeSeatReady ? (
+          /* Active seat ready: Next (x2) + Undo + New Shoe */
+          <>
+            <button
+              onClick={handleNext}
+              className="col-span-2 bg-purple-900/50 border border-purple-600 rounded-lg py-2.5 text-xs font-bold text-purple-300 uppercase hover:bg-purple-800/50 active:scale-95 transition-all"
+            >
+              Next
+            </button>
+            <button
+              onClick={handleUndo}
+              className="bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
+            >
+              Undo
+            </button>
+            <button
+              onClick={handleNewShoe}
+              className="bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
+            >
+              New Shoe
+            </button>
+          </>
+        ) : (
+          /* Idle / deal mode: Undo (x2) + New Shoe (x2) */
+          <>
+            <button
+              onClick={handleUndo}
+              className="col-span-2 bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
+            >
+              Undo
+            </button>
+            <button
+              onClick={handleNewShoe}
+              className="col-span-2 bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
+            >
+              New Shoe
+            </button>
           </>
         )}
-        <button
-          onClick={handleUndo}
-          className="bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
-        >
-          Undo
-        </button>
-        <button
-          onClick={handleNewShoe}
-          className="bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
-        >
-          New Shoe
-        </button>
       </div>
     </div>
   );

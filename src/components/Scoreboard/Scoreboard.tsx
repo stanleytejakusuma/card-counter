@@ -1,7 +1,13 @@
 import { useGameStore } from '../../stores/gameStore.js';
 import { calculateHandTotal } from '../../engine/hand.js';
-import type { Card } from '../../engine/types.js';
+import { createCard } from '../../engine/counting.js';
+import type { Card, Rank } from '../../engine/types.js';
 import { RoundHistory } from './RoundHistory.js';
+
+function occupiedTotal(ranks: string[]): { total: number; cards: Card[] } {
+  const cards = ranks.map((r) => createCard((r === 'T' ? '10' : r) as Rank));
+  return { total: calculateHandTotal(cards).total, cards };
+}
 
 const ALL_SEATS = [7, 6, 5, 4, 3, 2, 1] as const;
 
@@ -10,9 +16,34 @@ function cardStr(card: Card): string {
 }
 
 export function Scoreboard() {
-  const { seats, activeSeatIndex, playerSeatNumbers, occupiedSeatNumbers, dealerUpcard, handPhase, lastConfirmedRound, shoeRoundHistory } = useGameStore();
+  const { seats, playerSeatNumbers, occupiedSeatNumbers, dealerUpcard, handPhase, lastConfirmedRound, shoeRoundHistory, cardContextHistory, _activePlaySeat, _dealerHits } = useGameStore();
 
   const showDealer = dealerUpcard ?? lastConfirmedRound?.dealerUpcard ?? null;
+
+  // Derive occupied seat cards from cardContextHistory (current round = after last 'D' entry)
+  const ctxHistory = cardContextHistory ?? [];
+  let lastDealerIdx = -1;
+  for (let i = ctxHistory.length - 1; i >= 0; i--) {
+    if (ctxHistory[i].target === 'D') { lastDealerIdx = i; break; }
+  }
+  const currentRoundCtx = lastDealerIdx >= 0 ? ctxHistory.slice(lastDealerIdx + 1) : [];
+  const occupiedCards: Record<number, string[]> = {};
+  for (const entry of currentRoundCtx) {
+    const match = entry.target.match(/^S(\d+)$/);
+    if (match) {
+      const seatNum = parseInt(match[1]);
+      if (occupiedSeatNumbers.includes(seatNum)) {
+        if (!occupiedCards[seatNum]) occupiedCards[seatNum] = [];
+        occupiedCards[seatNum].push(entry.rank);
+      }
+    }
+  }
+
+  // All active seats sorted by seat number
+  const allActiveSeats = [
+    ...playerSeatNumbers.map((n) => ({ seatNumber: n, isPlayer: true as const })),
+    ...occupiedSeatNumbers.map((n) => ({ seatNumber: n, isPlayer: false as const })),
+  ].sort((a, b) => a.seatNumber - b.seatNumber);
 
   return (
     <div className="border border-neutral-800 rounded-lg p-3 space-y-3">
@@ -21,21 +52,12 @@ export function Scoreboard() {
         Table
       </div>
 
-      {/* Dealer */}
-      <div className="text-center">
-        <span className="text-neutral-500 text-xs">DEALER: </span>
-        <span className="text-red-300 font-mono font-bold">
-          {showDealer ? `[${cardStr(showDealer)}]` : '[ ]'}
-        </span>
-      </div>
-
       {/* 7 seat badges */}
       <div className="flex justify-center gap-1">
         {ALL_SEATS.map((n) => {
           const isOurs = playerSeatNumbers.includes(n);
           const isOccupied = occupiedSeatNumbers.includes(n);
-          const seatIdx = seats.findIndex((s) => s.seatNumber === n);
-          const isActive = isOurs && seatIdx === activeSeatIndex && handPhase === 'player';
+          const isActive = (isOurs || isOccupied) && n === _activePlaySeat && handPhase === 'player';
 
           function handleClick() {
             if (isOurs) {
@@ -74,7 +96,9 @@ export function Scoreboard() {
               onContextMenu={handleRightClick}
               className={`w-8 h-8 rounded text-xs font-bold transition-all ${
                 isActive
-                  ? 'bg-blue-700 border-2 border-blue-400 text-white'
+                  ? isOccupied
+                    ? 'bg-amber-700 border-2 border-amber-400 text-white'
+                    : 'bg-blue-700 border-2 border-blue-400 text-white'
                   : isOurs
                     ? 'bg-blue-900/60 border border-blue-600 text-blue-300'
                     : isOccupied
@@ -96,35 +120,88 @@ export function Scoreboard() {
         <span className="text-neutral-600">Empty</span>
       </div>
 
-      {/* Current round — active seats' hands */}
+      {/* Current round — dealer + all active seats' hands */}
       {handPhase !== 'idle' && (
         <div className="space-y-1.5 border-t border-neutral-800 pt-2">
-          {seats.map((seat, si) => {
-            const isActiveSeat = si === activeSeatIndex && handPhase === 'player';
-            return (
-              <div
-                key={seat.seatNumber}
-                className={`text-xs font-mono rounded px-2 py-1 ${
-                  isActiveSeat ? 'bg-blue-950/30 border border-blue-800' : ''
-                }`}
-              >
-                <span className="text-blue-400">S{seat.seatNumber}</span>
-                <span className="text-neutral-600"> (YOU): </span>
-                {seat.hands.map((hand, hi) => {
-                  if (hand.cards.length === 0) return <span key={hi} className="text-neutral-600">- </span>;
-                  const total = calculateHandTotal(hand.cards);
-                  const isActiveHand = isActiveSeat && hi === seat.activeHandIndex;
-                  return (
-                    <span key={hi} className="mr-2">
-                      {hi > 0 && <span className="text-neutral-600">| </span>}
-                      <span className={isActiveHand ? 'text-neutral-200' : 'text-neutral-400'}>
-                        [{hand.cards.map(cardStr).join('')}]={total.total}
+          {/* Dealer row */}
+          <div className={`text-xs font-mono rounded px-2 py-1 ${
+            handPhase === 'table' ? 'bg-red-950/30 border border-red-800' : ''
+          }`}>
+            <span className="text-red-400">DEALER</span>
+            <span className="text-neutral-600">: </span>
+            {showDealer ? (
+              <span className="text-red-300">
+                [{cardStr(showDealer)}{_dealerHits.map(cardStr).join('')}]
+                ={calculateHandTotal([showDealer, ..._dealerHits]).total}
+                {calculateHandTotal([showDealer, ..._dealerHits]).total > 21 && (
+                  <span className="text-red-400 ml-0.5">BUST</span>
+                )}
+              </span>
+            ) : (
+              <span className="text-neutral-600">-</span>
+            )}
+          </div>
+
+          {allActiveSeats.map(({ seatNumber, isPlayer }) => {
+            if (isPlayer) {
+              const seat = seats.find((s) => s.seatNumber === seatNumber);
+              if (!seat) return null;
+              const isActiveSeat = seatNumber === _activePlaySeat && handPhase === 'player';
+              return (
+                <div
+                  key={seatNumber}
+                  className={`text-xs font-mono rounded px-2 py-1 ${
+                    isActiveSeat ? 'bg-blue-950/30 border border-blue-800' : ''
+                  }`}
+                >
+                  <span className="text-blue-400">S{seatNumber}</span>
+                  <span className="text-neutral-600"> (YOU): </span>
+                  {seat.hands.map((hand, hi) => {
+                    if (hand.cards.length === 0) return <span key={hi} className="text-neutral-600">- </span>;
+                    const total = calculateHandTotal(hand.cards);
+                    const isActiveHand = isActiveSeat && hi === seat.activeHandIndex;
+                    return (
+                      <span key={hi} className="mr-2">
+                        {hi > 0 && <span className="text-neutral-600">| </span>}
+                        <span className={isActiveHand ? 'text-neutral-200' : 'text-neutral-400'}>
+                          [{hand.cards.map(cardStr).join('')}]={total.total}
+                        </span>
+                        {total.total > 21 && <span className="text-red-400 ml-0.5">BUST</span>}
+                        {hand.cards.length === 2 && total.total === 21 && !hand.fromSplit && (
+                          <span className="text-yellow-400 ml-0.5">BJ</span>
+                        )}
+                        {hand.doubled && <span className="text-blue-400 ml-0.5">2x</span>}
+                        {hand.fromSplit && <span className="text-purple-400 ml-0.5">sp</span>}
                       </span>
-                      {hand.doubled && <span className="text-blue-400 ml-0.5">2x</span>}
-                      {hand.fromSplit && <span className="text-purple-400 ml-0.5">sp</span>}
+                    );
+                  })}
+                </div>
+              );
+            }
+
+            // Occupied seat — show cards from context history
+            const cards = occupiedCards[seatNumber];
+            return (
+              <div key={seatNumber} className={`text-xs font-mono rounded px-2 py-1 ${
+                seatNumber === _activePlaySeat && handPhase === 'player'
+                  ? 'bg-amber-950/30 border border-amber-800' : ''
+              }`}>
+                <span className="text-amber-400">S{seatNumber}</span>
+                <span className="text-neutral-600"> (OTHER): </span>
+                {cards && cards.length > 0 ? (() => {
+                  const { total } = occupiedTotal(cards);
+                  return (
+                    <span className="text-amber-300/70">
+                      [{cards.join('')}]={total}
+                      {total > 21 && <span className="text-red-400 ml-0.5">BUST</span>}
+                      {cards.length === 2 && total === 21 && (
+                        <span className="text-yellow-400 ml-0.5">BJ</span>
+                      )}
                     </span>
                   );
-                })}
+                })() : (
+                  <span className="text-neutral-600">-</span>
+                )}
               </div>
             );
           })}
