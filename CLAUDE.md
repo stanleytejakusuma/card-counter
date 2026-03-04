@@ -99,5 +99,10 @@ src/
 ### Persistence
 - `card-counter-file-persistence`: Vite dev middleware persists localStorage/IndexedDB to JSON files in data/. Hydrate on boot → write-through on change → restore on browser clear.
 
+### Game Logic
+- `card-counter-split-deal-phase`: _splitDealInProgress gates decisions until all split hands get 2nd card. Auto-advances through hands, handles re-splits, undo regresses then merges. Split aces auto-complete. Max 4 hands/seat.
+- `card-counter-multi-seat-play-order`: _dealOrderIndex for round-robin dealing, _activePlaySeat for play-order advancement through player+occupied seats. Phase-aware button layout (deal→play→table→end round).
+
 ### UI Features
 - `card-counter-occupied-seats`: Scoreboard seats have 3 states (blue=yours, amber=other player, gray=empty). Right-click toggles occupied. gameStore.occupiedSeatNumbers[].
+- `card-counter-touch-first-ui`: Keyboard shortcuts removed (useKeyboard gutted). All input via touch/mouse. Draw history strip in CardFeedback with colored chips. Scoreboard dealer in current round section with full hand + total.
