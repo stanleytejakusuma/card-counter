@@ -314,11 +314,47 @@ export const useGameStore = create<GameState>()(
 
             // Check if deal is now complete (2N+1 cards: N seats + dealer + N seats)
             if (newDealIdx >= N * 2 + 1) {
-              // Park on first seat in play order
-              updates._activePlaySeat = dealOrder[0];
-              const firstPlayerIdx = (updates.seats ?? state.seats).findIndex((s) => s.seatNumber === dealOrder[0]);
-              if (firstPlayerIdx >= 0) {
-                updates.activeSeatIndex = firstPlayerIdx;
+              const finalSeats = updates.seats ?? state.seats;
+              const finalCtx = [...state.cardContextHistory, { rank: (rank === '10' ? 'T' : rank) as CardContext['rank'], target: contextTarget }];
+
+              // Find first seat that doesn't already have 21/BJ
+              let startSeat = 0;
+              let startSeatNum = dealOrder[0];
+              for (let di = 0; di < dealOrder.length; di++) {
+                const sn = dealOrder[di];
+                const psi = finalSeats.findIndex((s) => s.seatNumber === sn);
+                if (psi >= 0) {
+                  // Player seat — check hand total
+                  const h = finalSeats[psi].hands[0];
+                  if (h.cards.length >= 2 && calculateHandTotal(h.cards).total >= 21) continue;
+                } else if (state.occupiedSeatNumbers.includes(sn)) {
+                  // Occupied seat — check total from context
+                  const tag = `S${sn}`;
+                  const seatRanks = finalCtx.filter((e) => e.target === tag).map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
+                  if (seatRanks.length >= 2 && calculateHandTotal(seatRanks.map((r) => createCard(r))).total >= 21) continue;
+                }
+                startSeat = di;
+                startSeatNum = sn;
+                break;
+              }
+
+              if (startSeat >= dealOrder.length || dealOrder.every((sn) => {
+                const psi = finalSeats.findIndex((s) => s.seatNumber === sn);
+                if (psi >= 0) return calculateHandTotal(finalSeats[psi].hands[0].cards).total >= 21;
+                const tag = `S${sn}`;
+                const sr = finalCtx.filter((e) => e.target === tag).map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
+                return sr.length >= 2 && calculateHandTotal(sr.map((r) => createCard(r))).total >= 21;
+              })) {
+                // All seats have 21/BJ — go straight to table phase
+                updates.handPhase = 'table';
+                updates._activePlaySeat = 0;
+                updates._dealerHits = [];
+              } else {
+                updates._activePlaySeat = startSeatNum;
+                const firstPlayerIdx = finalSeats.findIndex((s) => s.seatNumber === startSeatNum);
+                if (firstPlayerIdx >= 0) {
+                  updates.activeSeatIndex = firstPlayerIdx;
+                }
               }
             }
           } else if (state._activePlaySeat > 0 && state.occupiedSeatNumbers.includes(state._activePlaySeat)) {
@@ -588,7 +624,8 @@ export const useGameStore = create<GameState>()(
         // wasn't entered for the current seat's play turn, revert to previous seat
         if (state.handPhase === 'player' && state._activePlaySeat > 0) {
           const playOrder = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
-          const dealCardCount = playOrder.length * 2;
+          // Only N deal entries come after D in S..D..S order
+          const dealCardCount = playOrder.length;
           const ctxH = state.cardContextHistory;
           let lastDIdx = -1;
           for (let ci = ctxH.length - 1; ci >= 0; ci--) {
@@ -615,12 +652,47 @@ export const useGameStore = create<GameState>()(
             const currentIdx = playOrder.indexOf(state._activePlaySeat);
             if (currentIdx > 0) {
               const prevSeatNum = playOrder[currentIdx - 1];
-              const prevPlayerIdx = state.seats.findIndex((s) => s.seatNumber === prevSeatNum);
-              set({
-                _activePlaySeat: prevSeatNum,
-                ...(prevPlayerIdx >= 0 ? { activeSeatIndex: prevPlayerIdx } : {}),
-              });
-              return;
+
+              // Check if prev seat busted (auto-advance) — if so, the last card
+              // caused the bust and should be removed, not just nav-reverted
+              let prevSeatBusted = false;
+              const prevTag = `S${prevSeatNum}`;
+              if (state.occupiedSeatNumbers.includes(prevSeatNum)) {
+                // Occupied seat: compute total from context
+                let roundStart = lastDIdx >= 0 ? lastDIdx : ctxH.length;
+                for (let ci = roundStart - 1; ci >= 0; ci--) {
+                  if (ctxH[ci].target.startsWith('S')) roundStart = ci;
+                  else break;
+                }
+                const roundCtx = ctxH.slice(roundStart);
+                const seatRanks = roundCtx
+                  .filter((e) => e.target === prevTag)
+                  .map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
+                if (seatRanks.length > 0) {
+                  const total = calculateHandTotal(seatRanks.map((r) => createCard(r))).total;
+                  prevSeatBusted = total >= 21;
+                }
+              } else {
+                // Player seat: check hand total
+                const prevSeatData = state.seats.find((s) => s.seatNumber === prevSeatNum);
+                if (prevSeatData) {
+                  const hand = prevSeatData.hands[prevSeatData.activeHandIndex];
+                  if (hand.cards.length > 0) {
+                    prevSeatBusted = calculateHandTotal(hand.cards).total > 21;
+                  }
+                }
+              }
+
+              if (!prevSeatBusted) {
+                // Manual "Next" — just revert navigation, don't remove card
+                const prevPlayerIdx = state.seats.findIndex((s) => s.seatNumber === prevSeatNum);
+                set({
+                  _activePlaySeat: prevSeatNum,
+                  ...(prevPlayerIdx >= 0 ? { activeSeatIndex: prevPlayerIdx } : {}),
+                });
+                return;
+              }
+              // Bust auto-advance — fall through to remove the card that caused the bust
             }
             // First seat in play order → fall through to normal card undo
           }

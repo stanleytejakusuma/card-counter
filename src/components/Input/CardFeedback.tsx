@@ -45,7 +45,8 @@ export function CardFeedback() {
 
   // Determine effective phase label
   const dealOrder = [...playerSeatNumbers, ...occupiedSeatNumbers].sort((a, b) => a - b);
-  const inDealMode = handPhase === 'player' && dealOrder.length > 0 && _dealOrderIndex < dealOrder.length * 2;
+  const totalDealCards = dealOrder.length * 2 + 1;
+  const inDealMode = handPhase === 'player' && dealOrder.length > 0 && _dealOrderIndex > 0 && _dealOrderIndex < totalDealCards;
   const effectivePhase = inDealMode ? 'deal' : handPhase;
   const phaseLabel = PHASE_LABELS[effectivePhase];
 
@@ -85,6 +86,11 @@ export function CardFeedback() {
           {phaseLabel && (
             <span className={`ml-3 text-xs uppercase font-semibold ${phaseLabel.color}`}>
               {showSeatLabel ? playerLabel : phaseLabel.text}
+              {inDealMode && (
+                <span className="text-neutral-500 ml-1 normal-case">
+                  {_dealOrderIndex}/{totalDealCards}
+                </span>
+              )}
             </span>
           )}
         </div>
