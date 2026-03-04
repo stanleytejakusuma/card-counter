@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateEdge, calculateKellyBet } from '../kelly.js';
+import { calculateEdge, calculateKellyBet, calculateSpreadBet } from '../kelly.js';
 
 describe('calculateEdge', () => {
   it('returns -0.5% at TC 0 (house edge)', () => {
@@ -82,5 +82,38 @@ describe('calculateKellyBet', () => {
   it('reports full Kelly bet before clamping', () => {
     const result = calculateKellyBet({ ...baseParams, trueCount: 4 });
     expect(result.fullKellyBet).toBeCloseTo(150);
+  });
+});
+
+describe('calculateSpreadBet', () => {
+  const params = { minBet: 1, maxBet: 20, unitSize: 1 };
+
+  it('returns min bet at TC < 2', () => {
+    expect(calculateSpreadBet({ ...params, trueCount: -1 }).amount).toBe(1);
+    expect(calculateSpreadBet({ ...params, trueCount: 0 }).amount).toBe(1);
+    expect(calculateSpreadBet({ ...params, trueCount: 1 }).amount).toBe(1);
+    expect(calculateSpreadBet({ ...params, trueCount: 1.9 }).amount).toBe(1);
+  });
+
+  it('bets floor(TC) × unit at TC >= 2', () => {
+    expect(calculateSpreadBet({ ...params, trueCount: 2 }).amount).toBe(2);
+    expect(calculateSpreadBet({ ...params, trueCount: 3 }).amount).toBe(3);
+    expect(calculateSpreadBet({ ...params, trueCount: 5 }).amount).toBe(5);
+    expect(calculateSpreadBet({ ...params, trueCount: 5.8 }).amount).toBe(5);
+  });
+
+  it('clamps to maxBet', () => {
+    expect(calculateSpreadBet({ ...params, trueCount: 25 }).amount).toBe(20);
+  });
+
+  it('reports edge and hasEdge correctly', () => {
+    expect(calculateSpreadBet({ ...params, trueCount: 1 }).hasEdge).toBe(false);
+    expect(calculateSpreadBet({ ...params, trueCount: 3 }).hasEdge).toBe(true);
+    expect(calculateSpreadBet({ ...params, trueCount: 3 }).edge).toBeCloseTo(0.01);
+  });
+
+  it('reports correct units', () => {
+    expect(calculateSpreadBet({ ...params, trueCount: 5 }).units).toBe(5);
+    expect(calculateSpreadBet({ ...params, trueCount: 2, unitSize: 2 }).units).toBe(2);
   });
 });

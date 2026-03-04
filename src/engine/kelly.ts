@@ -85,12 +85,49 @@ export function calculateKellyBet(params: KellyParams): BetRecommendation {
   };
 }
 
+export interface SpreadParams {
+  trueCount: number;
+  minBet: number;
+  maxBet: number;
+  unitSize: number;
+}
+
+/**
+ * Simple TC spread: bet = floor(TC) × unitSize when TC >= 2, else minBet.
+ * Practical for small bankrolls where Kelly fractions round to minimum.
+ */
+export function calculateSpreadBet(params: SpreadParams): BetRecommendation {
+  const { trueCount, minBet, maxBet, unitSize } = params;
+  const edge = calculateEdge(trueCount);
+
+  if (trueCount < 2) {
+    return {
+      amount: minBet,
+      units: Math.round(minBet / unitSize * 10) / 10,
+      edge,
+      fullKellyBet: 0,
+      hasEdge: false,
+    };
+  }
+
+  let bet = Math.floor(trueCount) * unitSize;
+  bet = Math.max(minBet, Math.min(maxBet, bet));
+
+  return {
+    amount: bet,
+    units: Math.round(bet / unitSize * 10) / 10,
+    edge,
+    fullKellyBet: 0,
+    hasEdge: true,
+  };
+}
+
 export const DEFAULT_KELLY_PARAMS: Omit<KellyParams, 'trueCount'> = {
   bankroll: 400,
-  minBet: 5,
+  minBet: 1,
   maxBet: 100,
   kellyFraction: 0.25,
   baseHouseEdge: 0.005,
   edgePerTrueCount: 0.005,
-  unitSize: 5,
+  unitSize: 1,
 };

@@ -6,7 +6,7 @@ import { useSettingsStore } from '../stores/settingsStore.js';
 import { calculateHandTotal } from '../engine/hand.js';
 import { calculateTrueCount, calculateDecksRemaining } from '../engine/counting.js';
 import { getStrategyAdvice } from '../engine/strategy.js';
-import { calculateKellyBet } from '../engine/kelly.js';
+import { calculateSpreadBet } from '../engine/kelly.js';
 
 let initialized = false;
 
@@ -34,14 +34,10 @@ export function initHistoryRecorder() {
 
       state.updateTrueCountExtremes(tc);
 
-      const kellyBet = calculateKellyBet({
-        bankroll: session.bankroll,
+      const spreadBet = calculateSpreadBet({
         trueCount: tc,
         minBet: session.minBet,
         maxBet: session.maxBet,
-        kellyFraction: session.kellyFraction,
-        baseHouseEdge: 0.005,
-        edgePerTrueCount: 0.005,
         unitSize: session.unitSize,
       });
 
@@ -56,7 +52,7 @@ export function initHistoryRecorder() {
       // Nested loop: seat → hand
       for (let i = 0; i < seats.length; i++) {
         const seat = seats[i];
-        const baseBet = seat.betOverride ?? kellyBet.amount;
+        const baseBet = seat.betOverride ?? spreadBet.amount;
 
         for (let j = 0; j < seat.hands.length; j++) {
           const hand = seat.hands[j];
@@ -88,7 +84,7 @@ export function initHistoryRecorder() {
             trueCount: tc,
             decksRemaining: dr,
             strategyAdvice: adviceStr,
-            betRecommendation: kellyBet.amount,
+            betRecommendation: spreadBet.amount,
             outcome: snapshotOutcome,
             betAmount: actualBet,
             netResult: null,
@@ -142,7 +138,7 @@ export function initHistoryRecorder() {
         const lastRound = roundHistory[roundHistory.length - 1];
         const updatedSeats = lastRound.seats.map((s, idx) => {
           const confirmedSeat = seats[idx];
-          const baseBet = confirmedSeat?.betOverride ?? kellyBet.amount;
+          const baseBet = confirmedSeat?.betOverride ?? spreadBet.amount;
           return { ...s, betAmount: baseBet };
         });
         const updatedRound = { ...lastRound, seats: updatedSeats, trueCount: tc };

@@ -3,12 +3,12 @@ import { useGameStore } from '../../stores/gameStore.js';
 import { useSessionStore } from '../../stores/sessionStore.js';
 import { useSettingsStore } from '../../stores/settingsStore.js';
 import { calculateTrueCount } from '../../engine/counting.js';
-import { calculateKellyBet } from '../../engine/kelly.js';
+import { calculateSpreadBet } from '../../engine/kelly.js';
 import { formatCurrency } from '../../utils/formatters.js';
 
 export function BetDisplay() {
   const { runningCount, cardsSeen, seats, playerSeatNumbers } = useGameStore();
-  const { bankroll, minBet, maxBet, unitSize, kellyFraction } = useSessionStore();
+  const { minBet, maxBet, unitSize } = useSessionStore();
   const decks = useSettingsStore((s) => s.rules.decks);
   const [editing, setEditing] = useState(false);
   const [editUnit, setEditUnit] = useState('');
@@ -19,16 +19,7 @@ export function BetDisplay() {
   const multiSeat = playerSeatNumbers.length > 1;
 
   const tc = calculateTrueCount(runningCount, cardsSeen, decks);
-  const bet = calculateKellyBet({
-    bankroll,
-    trueCount: tc,
-    minBet,
-    maxBet,
-    kellyFraction,
-    baseHouseEdge: 0.005,
-    edgePerTrueCount: 0.005,
-    unitSize,
-  });
+  const bet = calculateSpreadBet({ trueCount: tc, minBet, maxBet, unitSize });
 
   useEffect(() => {
     if (editing && unitRef.current) {
