@@ -85,6 +85,8 @@ interface GameState {
   _activePlaySeat: number;  // current seat in full play order (0 = not in play yet)
   _dealerHits: Card[];  // cards entered during table phase (dealer cards)
   _splitDealInProgress: boolean;  // true while dealing second cards to split hands
+  _occupiedSplitSeats: number[];  // occupied seats that split this round
+  _occupiedActiveSubHand: number;  // 0 or 1 — which sub-hand receives cards
 
   currentShoeId: string | null;
   shoeHandCount: number;
@@ -106,6 +108,7 @@ interface GameState {
   updateTrueCountExtremes: (tc: number) => void;
 
   splitHand: () => void;
+  splitOccupied: () => void;
   doubleDown: () => void;
   setBetOverride: (seatIndex: number, amount: number | null) => void;
   setPlayerSeats: (seatNumbers: number[]) => void;
@@ -176,6 +179,8 @@ export const useGameStore = create<GameState>()(
       _activePlaySeat: 0,
       _dealerHits: [],
       _splitDealInProgress: false,
+      _occupiedSplitSeats: [],
+      _occupiedActiveSubHand: 0,
 
       currentShoeId: null,
       shoeHandCount: 0,
@@ -360,44 +365,65 @@ export const useGameStore = create<GameState>()(
           } else if (state._activePlaySeat > 0 && state.occupiedSeatNumbers.includes(state._activePlaySeat)) {
             // PLAY MODE — active seat is an occupied (non-player) seat: cards go to tableCards
             updates.tableCards = [...state.tableCards, card];
-            contextTarget = `S${state._activePlaySeat}`;
-
-            // Compute occupied seat total from context history + new card
             const seatTag = `S${state._activePlaySeat}`;
+            const isSplit = state._occupiedSplitSeats.includes(state._activePlaySeat);
+
+            if (isSplit) {
+              contextTarget = `${seatTag}.${state._occupiedActiveSubHand + 1}`;
+            } else {
+              contextTarget = seatTag;
+            }
+
+            // Compute occupied seat/sub-hand total from context history + new card
             const ctxH = state.cardContextHistory;
-            // Find current round entries: scan back from end to find the deal block
-            // With new order (S..D..S), seat entries appear both before and after D
             let dIdx = -1;
             for (let ci = ctxH.length - 1; ci >= 0; ci--) {
               if (ctxH[ci].target === 'D') { dIdx = ci; break; }
             }
-            // Round starts at first S entry before D (or from start if no prior round)
             let roundStart = dIdx >= 0 ? dIdx : 0;
             for (let ci = roundStart - 1; ci >= 0; ci--) {
               if (ctxH[ci].target.startsWith('S')) roundStart = ci;
               else break;
             }
             const roundCtx = ctxH.slice(roundStart);
-            const seatRanks = roundCtx
-              .filter((e) => e.target === seatTag)
-              .map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
-            const allCards = [...seatRanks, rank].map((r) => createCard(r));
-            const occTotal = calculateHandTotal(allCards).total;
+
+            let occTotal: number;
+            if (isSplit) {
+              // Sub-hand total: deal card (nth S{n} entry) + S{n}.{h} hit cards + new card
+              const dealEntries = roundCtx.filter((e) => e.target === seatTag);
+              const dealCard = dealEntries[state._occupiedActiveSubHand];
+              const subTag = `${seatTag}.${state._occupiedActiveSubHand + 1}`;
+              const hitEntries = roundCtx.filter((e) => e.target === subTag);
+              const subRanks = [dealCard, ...hitEntries]
+                .filter(Boolean)
+                .map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
+              occTotal = calculateHandTotal([...subRanks, rank].map((r) => createCard(r))).total;
+            } else {
+              const seatRanks = roundCtx
+                .filter((e) => e.target === seatTag)
+                .map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
+              occTotal = calculateHandTotal([...seatRanks, rank].map((r) => createCard(r))).total;
+            }
 
             if (occTotal >= 21) {
-              // Auto-advance: same pattern as player seat advance (lines 300-312)
-              const playOrder = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
-              const currentIdx = playOrder.indexOf(state._activePlaySeat);
-              if (currentIdx >= 0 && currentIdx < playOrder.length - 1) {
-                const nextSeatNum = playOrder[currentIdx + 1];
-                updates._activePlaySeat = nextSeatNum;
-                const nextPlayerIdx = (updates.seats ?? state.seats).findIndex((s) => s.seatNumber === nextSeatNum);
-                if (nextPlayerIdx >= 0) updates.activeSeatIndex = nextPlayerIdx;
+              if (isSplit && state._occupiedActiveSubHand === 0) {
+                // Advance to second sub-hand
+                updates._occupiedActiveSubHand = 1;
               } else {
-                // Last seat → table phase
-                updates.handPhase = 'table';
-                updates._activePlaySeat = 0;
-                updates._dealerHits = [];
+                // Advance to next seat or table
+                const playOrder = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
+                const currentIdx = playOrder.indexOf(state._activePlaySeat);
+                if (currentIdx >= 0 && currentIdx < playOrder.length - 1) {
+                  const nextSeatNum = playOrder[currentIdx + 1];
+                  updates._activePlaySeat = nextSeatNum;
+                  updates._occupiedActiveSubHand = 0;
+                  const nextPlayerIdx = (updates.seats ?? state.seats).findIndex((s) => s.seatNumber === nextSeatNum);
+                  if (nextPlayerIdx >= 0) updates.activeSeatIndex = nextPlayerIdx;
+                } else {
+                  updates.handPhase = 'table';
+                  updates._activePlaySeat = 0;
+                  updates._dealerHits = [];
+                }
               }
             }
           } else if (state._splitDealInProgress) {
@@ -665,12 +691,28 @@ export const useGameStore = create<GameState>()(
                   else break;
                 }
                 const roundCtx = ctxH.slice(roundStart);
-                const seatRanks = roundCtx
-                  .filter((e) => e.target === prevTag)
-                  .map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
-                if (seatRanks.length > 0) {
-                  const total = calculateHandTotal(seatRanks.map((r) => createCard(r))).total;
-                  prevSeatBusted = total >= 21;
+
+                if (state._occupiedSplitSeats.includes(prevSeatNum)) {
+                  // Split: check the sub-hand that was last active
+                  const lastEntry = ctxH[ctxH.length - 1];
+                  const subMatch = lastEntry.target.match(/^S\d+\.(\d+)$/);
+                  const subIdx = subMatch ? parseInt(subMatch[1]) - 1 : 1;
+                  const dealEntries = roundCtx.filter((e) => e.target === prevTag);
+                  const subTag = `${prevTag}.${subIdx + 1}`;
+                  const hitEntries = roundCtx.filter((e) => e.target === subTag);
+                  const allRanks = [dealEntries[subIdx], ...hitEntries]
+                    .filter(Boolean)
+                    .map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
+                  if (allRanks.length > 0) {
+                    prevSeatBusted = calculateHandTotal(allRanks.map((r) => createCard(r))).total >= 21;
+                  }
+                } else {
+                  const seatRanks = roundCtx
+                    .filter((e) => e.target === prevTag)
+                    .map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
+                  if (seatRanks.length > 0) {
+                    prevSeatBusted = calculateHandTotal(seatRanks.map((r) => createCard(r))).total >= 21;
+                  }
                 }
               } else {
                 // Player seat: check hand total
@@ -864,6 +906,8 @@ export const useGameStore = create<GameState>()(
           _activePlaySeat: 0,
           _dealerHits: [],
           _splitDealInProgress: false,
+          _occupiedSplitSeats: [],
+          _occupiedActiveSubHand: 0,
         });
       },
 
@@ -951,6 +995,8 @@ export const useGameStore = create<GameState>()(
           _activePlaySeat: 0,
           _dealerHits: [],
           _splitDealInProgress: false,
+          _occupiedSplitSeats: [],
+          _occupiedActiveSubHand: 0,
         });
       },
 
@@ -967,6 +1013,8 @@ export const useGameStore = create<GameState>()(
         _activePlaySeat: 0,
         _dealerHits: [],
         _splitDealInProgress: false,
+        _occupiedSplitSeats: [],
+        _occupiedActiveSubHand: 0,
       })),
 
       setHandPhase: (phase: HandPhase) => {
@@ -977,6 +1025,8 @@ export const useGameStore = create<GameState>()(
         if (phase === 'table') {
           updates._activePlaySeat = 0;
           updates._dealerHits = [];
+          updates._occupiedSplitSeats = [];
+          updates._occupiedActiveSubHand = 0;
         } else if (phase === 'idle') {
           updates._activePlaySeat = 0;
         }
@@ -1010,6 +1060,8 @@ export const useGameStore = create<GameState>()(
           _activePlaySeat: 0,
           _dealerHits: [],
           _splitDealInProgress: false,
+          _occupiedSplitSeats: [],
+          _occupiedActiveSubHand: 0,
         })),
 
       updateTrueCountExtremes: (tc: number) => {
@@ -1049,6 +1101,38 @@ export const useGameStore = create<GameState>()(
             i === state.activeSeatIndex ? newSeat : s,
           ),
           _splitDealInProgress: true,
+        });
+      },
+
+      splitOccupied: () => {
+        const state = get();
+        if (state.handPhase !== 'player') return;
+        if (!state.occupiedSeatNumbers.includes(state._activePlaySeat)) return;
+        if (state._occupiedSplitSeats.includes(state._activePlaySeat)) return;
+
+        // Check occupied seat has exactly 2 cards that form a pair
+        const seatTag = `S${state._activePlaySeat}`;
+        const ctxH = state.cardContextHistory;
+        let dIdx = -1;
+        for (let ci = ctxH.length - 1; ci >= 0; ci--) {
+          if (ctxH[ci].target === 'D') { dIdx = ci; break; }
+        }
+        let roundStart = dIdx >= 0 ? dIdx : 0;
+        for (let ci = roundStart - 1; ci >= 0; ci--) {
+          if (ctxH[ci].target.startsWith('S')) roundStart = ci;
+          else break;
+        }
+        const roundCtx = ctxH.slice(roundStart);
+        const seatEntries = roundCtx.filter((e) => e.target === seatTag);
+        if (seatEntries.length !== 2) return;
+
+        const r0 = (seatEntries[0].rank === 'T' ? '10' : seatEntries[0].rank) as Rank;
+        const r1 = (seatEntries[1].rank === 'T' ? '10' : seatEntries[1].rank) as Rank;
+        if (createCard(r0).value !== createCard(r1).value) return;
+
+        set({
+          _occupiedSplitSeats: [...state._occupiedSplitSeats, state._activePlaySeat],
+          _occupiedActiveSubHand: 0,
         });
       },
 

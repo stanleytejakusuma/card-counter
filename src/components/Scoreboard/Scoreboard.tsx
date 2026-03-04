@@ -16,7 +16,7 @@ function cardStr(card: Card): string {
 }
 
 export function Scoreboard() {
-  const { seats, playerSeatNumbers, occupiedSeatNumbers, dealerUpcard, handPhase, lastConfirmedRound, shoeRoundHistory, cardContextHistory, _activePlaySeat, _dealerHits } = useGameStore();
+  const { seats, playerSeatNumbers, occupiedSeatNumbers, dealerUpcard, handPhase, lastConfirmedRound, shoeRoundHistory, cardContextHistory, _activePlaySeat, _dealerHits, _occupiedSplitSeats, _occupiedActiveSubHand } = useGameStore();
 
   const showDealer = dealerUpcard ?? lastConfirmedRound?.dealerUpcard ?? null;
 
@@ -33,15 +33,22 @@ export function Scoreboard() {
     else break;
   }
   const currentRoundCtx = ctxHistory.slice(roundStart);
-  const occupiedCards: Record<number, string[]> = {};
-  for (const entry of currentRoundCtx) {
-    const match = entry.target.match(/^S(\d+)$/);
-    if (match) {
-      const seatNum = parseInt(match[1]);
-      if (occupiedSeatNumbers.includes(seatNum)) {
-        if (!occupiedCards[seatNum]) occupiedCards[seatNum] = [];
-        occupiedCards[seatNum].push(entry.rank);
-      }
+  // Parse occupied seat cards, handling splits (S{n}.1 / S{n}.2)
+  const occupiedHands: Record<number, string[][]> = {};
+  for (const seatNum of occupiedSeatNumbers) {
+    const isSplit = _occupiedSplitSeats.includes(seatNum);
+    const seatTag = `S${seatNum}`;
+    const baseEntries = currentRoundCtx.filter((e) => e.target === seatTag);
+
+    if (isSplit && baseEntries.length >= 2) {
+      const h1Hits = currentRoundCtx.filter((e) => e.target === `${seatTag}.1`).map((e) => e.rank);
+      const h2Hits = currentRoundCtx.filter((e) => e.target === `${seatTag}.2`).map((e) => e.rank);
+      occupiedHands[seatNum] = [
+        [baseEntries[0].rank, ...h1Hits],
+        [baseEntries[1].rank, ...h2Hits],
+      ];
+    } else {
+      occupiedHands[seatNum] = [baseEntries.map((e) => e.rank)];
     }
   }
 
@@ -185,29 +192,34 @@ export function Scoreboard() {
               );
             }
 
-            // Occupied seat — show cards from context history
-            const cards = occupiedCards[seatNumber];
+            // Occupied seat — show cards from context history (supports splits)
+            const hands = occupiedHands[seatNumber] ?? [[]];
+            const isSplit = _occupiedSplitSeats.includes(seatNumber);
+            const isActiveSeat = seatNumber === _activePlaySeat && handPhase === 'player';
             return (
               <div key={seatNumber} className={`text-xs font-mono rounded px-2 py-1 ${
-                seatNumber === _activePlaySeat && handPhase === 'player'
-                  ? 'bg-amber-950/30 border border-amber-800' : ''
+                isActiveSeat ? 'bg-amber-950/30 border border-amber-800' : ''
               }`}>
                 <span className="text-amber-400">S{seatNumber}</span>
                 <span className="text-neutral-600"> (OTHER): </span>
-                {cards && cards.length > 0 ? (() => {
-                  const { total } = occupiedTotal(cards);
+                {hands.map((ranks, hi) => {
+                  if (ranks.length === 0) return hi === 0 ? <span key={hi} className="text-neutral-600">-</span> : null;
+                  const { total } = occupiedTotal(ranks);
+                  const isActiveHand = isActiveSeat && isSplit && hi === _occupiedActiveSubHand;
                   return (
-                    <span className="text-amber-300/70">
-                      [{cards.join('')}]={total}
+                    <span key={hi} className="mr-2">
+                      {hi > 0 && <span className="text-neutral-600">| </span>}
+                      <span className={isActiveHand ? 'text-amber-200' : 'text-amber-300/70'}>
+                        [{ranks.join('')}]={total}
+                      </span>
                       {total > 21 && <span className="text-red-400 ml-0.5">BUST</span>}
-                      {cards.length === 2 && total === 21 && (
+                      {!isSplit && ranks.length === 2 && total === 21 && (
                         <span className="text-yellow-400 ml-0.5">BJ</span>
                       )}
+                      {isSplit && <span className="text-purple-400 ml-0.5">sp</span>}
                     </span>
                   );
-                })() : (
-                  <span className="text-neutral-600">-</span>
-                )}
+                })}
               </div>
             );
           })}

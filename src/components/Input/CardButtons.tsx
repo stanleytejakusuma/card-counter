@@ -4,6 +4,7 @@ import { useGameStore } from '../../stores/gameStore.js';
 import { useSessionStore } from '../../stores/sessionStore.js';
 import { useSettingsStore } from '../../stores/settingsStore.js';
 import { calculateHandTotal } from '../../engine/hand.js';
+import { createCard } from '../../engine/counting.js';
 
 const CARD_RANKS: { label: string; rank: Rank }[] = [
   { label: 'A', rank: 'A' },
@@ -54,13 +55,38 @@ export function CardButtons() {
   if (lateSurrender) outcomes.push(SR_OUTCOME);
 
   const isOccupiedSeatActive = _activePlaySeat > 0 && occupiedSeatNumbers.includes(_activePlaySeat);
+  const occupiedSplitSeats = useGameStore((s) => s._occupiedSplitSeats);
 
-  // Check for split/double eligibility (only for player seats, not occupied)
+  // Check for split/double eligibility
   const canSplit = !isOccupiedSeatActive && handPhase === 'player' && activeHand && activeHand.cards.length === 2 &&
     !activeHand.doubled && activeSeat.hands.length < 2 &&
     calculateHandTotal(activeHand.cards).isPair;
   const canDouble = !isOccupiedSeatActive && handPhase === 'player' && activeHand && activeHand.cards.length === 2 &&
     !activeHand.doubled;
+
+  // Occupied seat split eligibility: 2 cards, pair, not already split
+  let canSplitOccupied = false;
+  if (isOccupiedSeatActive && !occupiedSplitSeats.includes(_activePlaySeat)) {
+    const game = useGameStore.getState();
+    const ctxH = game.cardContextHistory;
+    const seatTag = `S${_activePlaySeat}`;
+    let dIdx = -1;
+    for (let ci = ctxH.length - 1; ci >= 0; ci--) {
+      if (ctxH[ci].target === 'D') { dIdx = ci; break; }
+    }
+    let roundStart = dIdx >= 0 ? dIdx : 0;
+    for (let ci = roundStart - 1; ci >= 0; ci--) {
+      if (ctxH[ci].target.startsWith('S')) roundStart = ci;
+      else break;
+    }
+    const roundCtx = ctxH.slice(roundStart);
+    const seatEntries = roundCtx.filter((e) => e.target === seatTag);
+    if (seatEntries.length === 2) {
+      const r0 = (seatEntries[0].rank === 'T' ? '10' : seatEntries[0].rank) as Rank;
+      const r1 = (seatEntries[1].rank === 'T' ? '10' : seatEntries[1].rank) as Rank;
+      canSplitOccupied = createCard(r0).value === createCard(r1).value;
+    }
+  }
 
   function handleCardClick(rank: Rank) {
     if (awaitingOutcome) {
@@ -87,6 +113,13 @@ export function CardButtons() {
     const playOrder = [...game.playerSeatNumbers, ...game.occupiedSeatNumbers].sort((a, b) => a - b);
     const currentSeat = game._activePlaySeat;
 
+    // If occupied seat is split, advance sub-hand before advancing seat
+    if (currentSeat > 0 && game.occupiedSeatNumbers.includes(currentSeat) &&
+        game._occupiedSplitSeats.includes(currentSeat) && game._occupiedActiveSubHand === 0) {
+      useGameStore.setState({ _occupiedActiveSubHand: 1 });
+      return;
+    }
+
     // If activePlaySeat is a player seat, check for split hands first
     if (currentSeat > 0 && game.playerSeatNumbers.includes(currentSeat)) {
       const seatIdx = game.seats.findIndex((s) => s.seatNumber === currentSeat);
@@ -107,6 +140,7 @@ export function CardButtons() {
       const nextPlayerIdx = game.seats.findIndex((s) => s.seatNumber === nextSeatNum);
       useGameStore.setState({
         _activePlaySeat: nextSeatNum,
+        _occupiedActiveSubHand: 0,
         ...(nextPlayerIdx >= 0 ? { activeSeatIndex: nextPlayerIdx } : {}),
       });
     } else {
@@ -205,11 +239,14 @@ export function CardButtons() {
       )}
 
       {/* Split/Double action buttons — when active seat has 2+ cards */}
-      {activeSeatReady && (canSplit || canDouble) && (
+      {activeSeatReady && (canSplit || canDouble || canSplitOccupied) && (
         <div className="flex gap-1.5 justify-center">
-          {canSplit && (
+          {(canSplit || canSplitOccupied) && (
             <button
-              onClick={() => useGameStore.getState().splitHand()}
+              onClick={() => canSplitOccupied
+                ? useGameStore.getState().splitOccupied()
+                : useGameStore.getState().splitHand()
+              }
               className="px-4 py-1.5 bg-purple-900/40 border border-purple-700 rounded-lg text-xs font-bold text-purple-300 uppercase hover:bg-purple-800/40 active:scale-95 transition-all"
             >
               Split
