@@ -315,36 +315,36 @@ export const useGameStore = create<GameState>()(
             // Check if deal is now complete (2N+1 cards: N seats + dealer + N seats)
             if (newDealIdx >= N * 2 + 1) {
               const finalSeats = updates.seats ?? state.seats;
-              const finalCtx = [...state.cardContextHistory, { rank: (rank === '10' ? 'T' : rank) as CardContext['rank'], target: contextTarget }];
+              // Only use current round's context (last 2N+1 entries) — not previous rounds
+              const fullCtx = [...state.cardContextHistory, { rank: (rank === '10' ? 'T' : rank) as CardContext['rank'], target: contextTarget }];
+              const roundCtx = fullCtx.slice(-(N * 2 + 1));
 
-              // Find first seat that doesn't already have 21/BJ
-              let startSeat = 0;
-              let startSeatNum = dealOrder[0];
-              for (let di = 0; di < dealOrder.length; di++) {
-                const sn = dealOrder[di];
+              const seatHas21 = (sn: number): boolean => {
                 const psi = finalSeats.findIndex((s) => s.seatNumber === sn);
                 if (psi >= 0) {
-                  // Player seat — check hand total
                   const h = finalSeats[psi].hands[0];
-                  if (h.cards.length >= 2 && calculateHandTotal(h.cards).total >= 21) continue;
-                } else if (state.occupiedSeatNumbers.includes(sn)) {
-                  // Occupied seat — check total from context
-                  const tag = `S${sn}`;
-                  const seatRanks = finalCtx.filter((e) => e.target === tag).map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
-                  if (seatRanks.length >= 2 && calculateHandTotal(seatRanks.map((r) => createCard(r))).total >= 21) continue;
+                  return h.cards.length >= 2 && calculateHandTotal(h.cards).total >= 21;
                 }
-                startSeat = di;
-                startSeatNum = sn;
-                break;
+                if (state.occupiedSeatNumbers.includes(sn)) {
+                  const tag = `S${sn}`;
+                  const seatRanks = roundCtx.filter((e) => e.target === tag).map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
+                  return seatRanks.length >= 2 && calculateHandTotal(seatRanks.map((r) => createCard(r))).total >= 21;
+                }
+                return false;
+              };
+
+              // Find first seat that doesn't already have 21/BJ
+              let startSeatNum = dealOrder[0];
+              let allHave21 = true;
+              for (const sn of dealOrder) {
+                if (!seatHas21(sn)) {
+                  startSeatNum = sn;
+                  allHave21 = false;
+                  break;
+                }
               }
 
-              if (startSeat >= dealOrder.length || dealOrder.every((sn) => {
-                const psi = finalSeats.findIndex((s) => s.seatNumber === sn);
-                if (psi >= 0) return calculateHandTotal(finalSeats[psi].hands[0].cards).total >= 21;
-                const tag = `S${sn}`;
-                const sr = finalCtx.filter((e) => e.target === tag).map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
-                return sr.length >= 2 && calculateHandTotal(sr.map((r) => createCard(r))).total >= 21;
-              })) {
+              if (allHave21) {
                 // All seats have 21/BJ — go straight to table phase
                 updates.handPhase = 'table';
                 updates._activePlaySeat = 0;

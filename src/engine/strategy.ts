@@ -117,22 +117,43 @@ export function getStrategyAdvice(
   // Check index deviations first
   const deviation = checkIndexDeviations(hand, dealerValue, trueCount, rules);
   if (deviation) {
-    return {
+    const result: ResolvedAction = {
       action: deviation.action,
       rawAction: deviation.action,
       isDeviation: true,
       deviationName: deviation.play.name,
     };
+    applyAvailabilityConstraints(result, playerCards.length);
+    return result;
   }
 
   // Fall back to basic strategy
   const { rawAction, resolved } = lookupBasicStrategy(hand, dealerValue, rules);
-  return {
+  const result: ResolvedAction = {
     action: resolved,
     rawAction,
     isDeviation: false,
     deviationName: null,
   };
+  applyAvailabilityConstraints(result, playerCards.length);
+  return result;
+}
+
+/** When double/split/surrender aren't available, fall back to the next best action. */
+function applyAvailabilityConstraints(result: ResolvedAction, numCards: number): void {
+  if (numCards <= 2) return;
+  // Can't double with 3+ cards: Dh→H, Ds→S
+  if (result.action === 'D') {
+    result.action = (result.rawAction === 'Ds') ? 'S' : 'H';
+  }
+  // Can't split with 3+ cards
+  if (result.action === 'P') {
+    result.action = 'H';
+  }
+  // Can't surrender after hitting
+  if (result.action === 'R') {
+    result.action = 'H';
+  }
 }
 
 export function shouldTakeInsurance(trueCount: number): boolean {
