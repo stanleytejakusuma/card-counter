@@ -122,22 +122,38 @@ interface GameState {
   nextBox: () => void;
 }
 
-/** Recompute _dealOrderIndex from the remaining cardContextHistory after undo. */
+/** Recompute _dealOrderIndex from the remaining cardContextHistory after undo.
+ *  New deal order: S..S, D, S..S  (players first round, dealer, players second round)
+ *  Index = total deal entries (S and D) from the current round start. */
 function recomputeDealOrderIndex(ctx: CardContext[]): number {
-  // Find last dealer entry
-  let lastDIdx = -1;
+  // Find the dealer entry (marks the boundary between first and second player rounds)
+  let dIdx = -1;
   for (let i = ctx.length - 1; i >= 0; i--) {
-    if (ctx[i].target === 'D') { lastDIdx = i; break; }
+    if (ctx[i].target === 'D') { dIdx = i; break; }
   }
-  if (lastDIdx < 0) return 0;
 
-  // Count consecutive seat entries after the last dealer card
-  let count = 0;
-  for (let i = lastDIdx + 1; i < ctx.length; i++) {
-    if (ctx[i].target.startsWith('S')) count++;
+  if (dIdx < 0) {
+    // No dealer card yet — count trailing S entries (first round in progress)
+    let count = 0;
+    for (let i = ctx.length - 1; i >= 0; i--) {
+      if (ctx[i].target.startsWith('S')) count++;
+      else break;
+    }
+    return count;
+  }
+
+  // D found: count consecutive S before D + 1 (D itself) + consecutive S after D
+  let sBefore = 0;
+  for (let i = dIdx - 1; i >= 0; i--) {
+    if (ctx[i].target.startsWith('S')) sBefore++;
     else break;
   }
-  return count;
+  let sAfter = 0;
+  for (let i = dIdx + 1; i < ctx.length; i++) {
+    if (ctx[i].target.startsWith('S')) sAfter++;
+    else break;
+  }
+  return sBefore + 1 + sAfter;
 }
 
 export const useGameStore = create<GameState>()(
@@ -216,50 +232,88 @@ export const useGameStore = create<GameState>()(
             }
           }
         } else if (state.handPhase === 'idle') {
+          // First card of the round goes to the first seat (not dealer)
+          const dealOrder = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
+          const targetSeatNum = dealOrder[0];
+
           updates.handPhase = 'player';
-          updates.dealerUpcard = card;
+          updates._dealOrderIndex = 1;
           updates.activeSeatIndex = 0;
-          contextTarget = 'D';
-        } else if (state.handPhase === 'dealer') {
-          updates.dealerUpcard = card;
-          updates.handPhase = 'player';
-          updates.activeSeatIndex = 0;
-          contextTarget = 'D';
+
+          const playerSeatIdx = state.seats.findIndex((s) => s.seatNumber === targetSeatNum);
+          if (playerSeatIdx >= 0) {
+            const seat = state.seats[playerSeatIdx];
+            const hand = seat.hands[seat.activeHandIndex];
+            contextTarget = `S${seat.seatNumber}`;
+            const newHand: PlayerHand = { ...hand, cards: [...hand.cards, card] };
+            const newHands = seat.hands.map((h, j) => j === seat.activeHandIndex ? newHand : h);
+            const newSeat: PlayerSeat = { ...seat, hands: newHands };
+            updates.seats = state.seats.map((s, i) => i === playerSeatIdx ? newSeat : s);
+            updates.activeSeatIndex = playerSeatIdx;
+          } else {
+            updates.tableCards = [...state.tableCards, card];
+            contextTarget = `S${targetSeatNum}`;
+          }
         } else if (state.handPhase === 'player') {
           const dealOrder = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
-          const inDealMode = dealOrder.length > 0 && state._dealOrderIndex < dealOrder.length * 2;
+          const N = dealOrder.length;
+          const inDealMode = N > 0 && state._dealOrderIndex > 0 && state._dealOrderIndex < N * 2 + 1;
 
           if (inDealMode) {
-            // DEAL MODE — round-robin across ALL active seats (player + occupied)
-            const targetSeatNum = dealOrder[state._dealOrderIndex % dealOrder.length];
+            // DEAL MODE — order: S..S (first round), D (dealer), S..S (second round)
+            const idx = state._dealOrderIndex;
 
-            const playerSeatIdx = state.seats.findIndex((s) => s.seatNumber === targetSeatNum);
+            if (idx < N) {
+              // First round — seat card
+              const targetSeatNum = dealOrder[idx];
+              const playerSeatIdx = state.seats.findIndex((s) => s.seatNumber === targetSeatNum);
 
-            if (playerSeatIdx >= 0) {
-              // Player seat — add card to hand
-              const seat = state.seats[playerSeatIdx];
-              const hand = seat.hands[seat.activeHandIndex];
-              contextTarget = seat.hands.length > 1
-                ? `S${seat.seatNumber}.${seat.activeHandIndex + 1}`
-                : `S${seat.seatNumber}`;
-
-              const newHand: PlayerHand = { ...hand, cards: [...hand.cards, card] };
-              const newHands = seat.hands.map((h, j) => j === seat.activeHandIndex ? newHand : h);
-              const newSeat: PlayerSeat = { ...seat, hands: newHands };
-              const newSeats = state.seats.map((s, i) => i === playerSeatIdx ? newSeat : s);
-              updates.seats = newSeats;
-              updates.activeSeatIndex = playerSeatIdx;
+              if (playerSeatIdx >= 0) {
+                const seat = state.seats[playerSeatIdx];
+                const hand = seat.hands[seat.activeHandIndex];
+                contextTarget = seat.hands.length > 1
+                  ? `S${seat.seatNumber}.${seat.activeHandIndex + 1}`
+                  : `S${seat.seatNumber}`;
+                const newHand: PlayerHand = { ...hand, cards: [...hand.cards, card] };
+                const newHands = seat.hands.map((h, j) => j === seat.activeHandIndex ? newHand : h);
+                const newSeat: PlayerSeat = { ...seat, hands: newHands };
+                updates.seats = state.seats.map((s, i) => i === playerSeatIdx ? newSeat : s);
+                updates.activeSeatIndex = playerSeatIdx;
+              } else {
+                updates.tableCards = [...state.tableCards, card];
+                contextTarget = `S${targetSeatNum}`;
+              }
+            } else if (idx === N) {
+              // Dealer upcard
+              updates.dealerUpcard = card;
+              contextTarget = 'D';
             } else {
-              // Occupied (non-player) seat — count only, add to tableCards
-              updates.tableCards = [...state.tableCards, card];
-              contextTarget = `S${targetSeatNum}`;
+              // Second round — seat card (idx > N)
+              const targetSeatNum = dealOrder[idx - N - 1];
+              const playerSeatIdx = state.seats.findIndex((s) => s.seatNumber === targetSeatNum);
+
+              if (playerSeatIdx >= 0) {
+                const seat = state.seats[playerSeatIdx];
+                const hand = seat.hands[seat.activeHandIndex];
+                contextTarget = seat.hands.length > 1
+                  ? `S${seat.seatNumber}.${seat.activeHandIndex + 1}`
+                  : `S${seat.seatNumber}`;
+                const newHand: PlayerHand = { ...hand, cards: [...hand.cards, card] };
+                const newHands = seat.hands.map((h, j) => j === seat.activeHandIndex ? newHand : h);
+                const newSeat: PlayerSeat = { ...seat, hands: newHands };
+                updates.seats = state.seats.map((s, i) => i === playerSeatIdx ? newSeat : s);
+                updates.activeSeatIndex = playerSeatIdx;
+              } else {
+                updates.tableCards = [...state.tableCards, card];
+                contextTarget = `S${targetSeatNum}`;
+              }
             }
 
             const newDealIdx = state._dealOrderIndex + 1;
             updates._dealOrderIndex = newDealIdx;
 
-            // Check if deal is now complete (all seats got 2 cards)
-            if (newDealIdx >= dealOrder.length * 2) {
+            // Check if deal is now complete (2N+1 cards: N seats + dealer + N seats)
+            if (newDealIdx >= N * 2 + 1) {
               // Park on first seat in play order
               updates._activePlaySeat = dealOrder[0];
               const firstPlayerIdx = (updates.seats ?? state.seats).findIndex((s) => s.seatNumber === dealOrder[0]);
@@ -275,12 +329,19 @@ export const useGameStore = create<GameState>()(
             // Compute occupied seat total from context history + new card
             const seatTag = `S${state._activePlaySeat}`;
             const ctxH = state.cardContextHistory;
-            // Find current round entries (after last 'D' entry)
-            let lastD = -1;
+            // Find current round entries: scan back from end to find the deal block
+            // With new order (S..D..S), seat entries appear both before and after D
+            let dIdx = -1;
             for (let ci = ctxH.length - 1; ci >= 0; ci--) {
-              if (ctxH[ci].target === 'D') { lastD = ci; break; }
+              if (ctxH[ci].target === 'D') { dIdx = ci; break; }
             }
-            const roundCtx = lastD >= 0 ? ctxH.slice(lastD + 1) : [];
+            // Round starts at first S entry before D (or from start if no prior round)
+            let roundStart = dIdx >= 0 ? dIdx : 0;
+            for (let ci = roundStart - 1; ci >= 0; ci--) {
+              if (ctxH[ci].target.startsWith('S')) roundStart = ci;
+              else break;
+            }
+            const roundCtx = ctxH.slice(roundStart);
             const seatRanks = roundCtx
               .filter((e) => e.target === seatTag)
               .map((e) => (e.rank === 'T' ? '10' : e.rank) as Rank);
@@ -634,7 +695,7 @@ export const useGameStore = create<GameState>()(
                       const earlyCtx = updates.cardContextHistory ?? state.cardContextHistory.slice(0, -1);
                       updates._dealOrderIndex = recomputeDealOrderIndex(earlyCtx);
                       const dealOrderLen = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].length;
-                      if (updates._dealOrderIndex < dealOrderLen * 2) {
+                      if (updates._dealOrderIndex < dealOrderLen * 2 + 1) {
                         updates._activePlaySeat = 0;
                       } else if (targetSeatNum > 0) {
                         updates._activePlaySeat = targetSeatNum;
@@ -656,9 +717,8 @@ export const useGameStore = create<GameState>()(
               }
             }
           } else if (lastTarget === 'D') {
-            // Undo dealer card
+            // Undo dealer card — stay in deal mode (mid-deal, not idle)
             updates.dealerUpcard = null;
-            updates.handPhase = 'idle';
           } else {
             // Fallback: undo from active seat
             const seat = state.seats[state.activeSeatIndex];
@@ -684,14 +744,16 @@ export const useGameStore = create<GameState>()(
 
           // Fix _activePlaySeat: back to deal mode or restore to undone seat
           const dealOrderLen = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].length;
-          if (updates._dealOrderIndex < dealOrderLen * 2) {
+          if (updates._dealOrderIndex < dealOrderLen * 2 + 1) {
             updates._activePlaySeat = 0;  // back in deal mode
           } else if (targetSeatNum > 0) {
             updates._activePlaySeat = targetSeatNum;  // restore to undone seat
           }
-        } else if (state.handPhase === 'dealer') {
-          updates.dealerUpcard = null;
-          updates.handPhase = 'idle';
+
+          // If we've undone back to the start, return to idle
+          if (updates._dealOrderIndex === 0) {
+            updates.handPhase = 'idle';
+          }
         }
 
         set(updates);
