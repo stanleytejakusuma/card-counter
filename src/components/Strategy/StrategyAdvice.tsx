@@ -33,7 +33,7 @@ export function StrategyAdvice() {
     return (
       <div className="text-center py-4">
         <div className="text-3xl font-bold text-neutral-700">—</div>
-        <div className="text-xs text-neutral-600 mt-1">Enter dealer + 2 player cards</div>
+        <div className="text-xs text-neutral-600 mt-1">Enter dealer + player cards</div>
       </div>
     );
   }

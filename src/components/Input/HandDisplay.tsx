@@ -23,7 +23,7 @@ function seatLabel(seatNumber: number, handIndex: number, totalHands: number): s
 }
 
 export function HandDisplay() {
-  const { seats, activeSeatIndex, playerSeatNumbers, dealerUpcard, handPhase, runningCount, cardsSeen, lastConfirmedRound, tableCards } = useGameStore();
+  const { seats, activeSeatIndex, playerSeatNumbers, dealerUpcard, handPhase, runningCount, cardsSeen, lastConfirmedRound, _dealerHits } = useGameStore();
   const decks = useSettingsStore((s) => s.rules.decks);
   const tc = calculateTrueCount(runningCount, cardsSeen, decks);
   const multiSeat = playerSeatNumbers.length > 1;
@@ -133,18 +133,18 @@ export function HandDisplay() {
         </div>
       )}
 
-      {/* Table cards */}
-      {tableCards.length > 0 && (
+      {/* Dealer hit cards (table phase only) */}
+      {_dealerHits.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap text-xs">
           <span className="text-red-400/70">Dealer:</span>
-          {tableCards.map((c, i) => (
+          {_dealerHits.map((c, i) => (
             <CardChip key={i} card={c} color="text-red-300" />
           ))}
         </div>
       )}
 
       {/* Table mode hint */}
-      {handPhase === 'table' && tableCards.length === 0 && !hasHand && (
+      {handPhase === 'table' && _dealerHits.length === 0 && !hasHand && (
         <div className="text-red-400/70 text-sm">
           Enter dealer cards, then End Round
         </div>

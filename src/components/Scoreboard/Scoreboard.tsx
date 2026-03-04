@@ -20,13 +20,19 @@ export function Scoreboard() {
 
   const showDealer = dealerUpcard ?? lastConfirmedRound?.dealerUpcard ?? null;
 
-  // Derive occupied seat cards from cardContextHistory (current round = after last 'D' entry)
+  // Derive occupied seat cards from cardContextHistory (current round spans both sides of D)
   const ctxHistory = cardContextHistory ?? [];
-  let lastDealerIdx = -1;
+  let dealerIdx = -1;
   for (let i = ctxHistory.length - 1; i >= 0; i--) {
-    if (ctxHistory[i].target === 'D') { lastDealerIdx = i; break; }
+    if (ctxHistory[i].target === 'D') { dealerIdx = i; break; }
   }
-  const currentRoundCtx = lastDealerIdx >= 0 ? ctxHistory.slice(lastDealerIdx + 1) : [];
+  // Round starts at first consecutive S entry before D (or trailing S entries if no D yet)
+  let roundStart = dealerIdx >= 0 ? dealerIdx : ctxHistory.length;
+  for (let i = (dealerIdx >= 0 ? dealerIdx : ctxHistory.length) - 1; i >= 0; i--) {
+    if (ctxHistory[i].target.startsWith('S')) roundStart = i;
+    else break;
+  }
+  const currentRoundCtx = ctxHistory.slice(roundStart);
   const occupiedCards: Record<number, string[]> = {};
   for (const entry of currentRoundCtx) {
     const match = entry.target.match(/^S(\d+)$/);
