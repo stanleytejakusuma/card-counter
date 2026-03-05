@@ -338,21 +338,23 @@ export function CardButtons() {
         ) : (
           /* Idle / deal mode: Observe + Undo + New Shoe */
           <>
-            <button
-              onClick={() => useGameStore.getState().toggleObserveRound()}
-              className={`${_observeRound ? 'bg-amber-900/60 border-amber-500' : 'bg-amber-900/40 border-amber-700'} border rounded-lg py-2.5 text-xs font-bold text-amber-300 uppercase hover:bg-amber-800/40 active:scale-95 transition-all`}
-            >
-              {_observeRound ? 'Observing' : 'Observe'}
-            </button>
+            {playerSeatNumbers.length === 0 && (
+              <button
+                onClick={() => useGameStore.getState().toggleObserveRound()}
+                className={`${_observeRound ? 'bg-amber-900/60 border-amber-500' : 'bg-amber-900/40 border-amber-700'} border rounded-lg py-2.5 text-xs font-bold text-amber-300 uppercase hover:bg-amber-800/40 active:scale-95 transition-all`}
+              >
+                {_observeRound ? 'Observing' : 'Observe'}
+              </button>
+            )}
             <button
               onClick={handleUndo}
-              className="bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
+              className={`${playerSeatNumbers.length > 0 ? 'col-span-2 ' : ''}bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all`}
             >
               Undo
             </button>
             <button
               onClick={handleNewShoe}
-              className="bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
+              className={`${playerSeatNumbers.length > 0 ? 'col-span-2 ' : ''}bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all`}
             >
               New Shoe
             </button>

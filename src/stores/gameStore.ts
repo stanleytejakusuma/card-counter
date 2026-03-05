@@ -1071,7 +1071,7 @@ export const useGameStore = create<GameState>()(
 
       toggleObserveRound: () => {
         const state = get();
-        if (state.handPhase !== 'idle') return;
+        if (state.handPhase !== 'idle' || state.playerSeatNumbers.length > 0) return;
         set({ _observeRound: !state._observeRound });
       },
 
