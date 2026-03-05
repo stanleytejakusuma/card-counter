@@ -28,11 +28,18 @@ export async function finalizeSession(sessionId: string): Promise<void> {
     // Finalize current shoe if still open
     const gameState = useGameStore.getState();
     if (gameState.currentShoeId) {
+      const distribution: Record<string, number> = {};
+      for (const card of gameState.cardHistory) {
+        distribution[card.rank] = (distribution[card.rank] ?? 0) + 1;
+      }
       await updateShoeEnd(
         gameState.currentShoeId,
         Date.now(),
         gameState.shoeHandCount,
         gameState.cardsSeen,
+        gameState.peakTrueCount,
+        gameState.minTrueCount,
+        distribution,
       ).catch(console.error);
     }
 
@@ -193,6 +200,7 @@ export function initHistoryRecorder() {
             handIndex: seat.hands.length > 1 ? j : undefined,
             doubled: hand.doubled || undefined,
             fromSplit: hand.fromSplit || undefined,
+            dealerCards: lastSnapshot?.dealerCards ?? [dealerUpcard],
           };
 
           putHand(record).catch(console.error);
@@ -257,11 +265,18 @@ export function initHistoryRecorder() {
       const sessionId = session.currentSessionId;
 
       if (prevShoeId && sessionId) {
+        const distribution: Record<string, number> = {};
+        for (const card of prevState.cardHistory) {
+          distribution[card.rank] = (distribution[card.rank] ?? 0) + 1;
+        }
         updateShoeEnd(
           prevShoeId,
           Date.now(),
           prevState.shoeHandCount,
           prevState.cardsSeen,
+          prevState.peakTrueCount,
+          prevState.minTrueCount,
+          distribution,
         ).catch(console.error);
 
         // Record peak TC for shoe quality tracking

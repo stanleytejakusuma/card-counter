@@ -24,6 +24,7 @@ export interface HandRecord {
   handIndex?: number;
   doubled?: boolean;
   fromSplit?: boolean;
+  dealerCards?: Card[];
 }
 
 export interface ShoeRecord {
@@ -35,6 +36,7 @@ export interface ShoeRecord {
   cardsDealt: number;
   peakTrueCount: number;
   minTrueCount: number;
+  cardDistribution?: Record<string, number>;
 }
 
 export interface SessionRecord {

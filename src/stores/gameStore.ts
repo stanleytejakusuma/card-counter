@@ -63,6 +63,7 @@ export interface RoundSnapshot {
     }[];
     betAmount: number;
   }[];
+  dealerCards: Card[];
   tableCards: Card[];
   runningCount: number;
   trueCount: number;
@@ -1010,7 +1011,8 @@ export const useGameStore = create<GameState>()(
               })),
               betAmount: 0, // Will be set by historyRecorder
             })),
-            tableCards: [],
+            dealerCards,
+            tableCards: state.tableCards,
             runningCount: state.runningCount,
             trueCount: 0, // Will be calculated by consumer
             timestamp: Date.now(),

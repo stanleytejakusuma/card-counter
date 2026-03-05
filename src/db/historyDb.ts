@@ -141,12 +141,18 @@ export function updateShoeEnd(
   endTime: number,
   totalHands: number,
   cardsDealt: number,
+  peakTrueCount?: number,
+  minTrueCount?: number,
+  cardDistribution?: Record<string, number>,
 ): Promise<void> {
   return txGet<ShoeRecord>('shoes', shoeId).then((shoe) => {
     if (shoe) {
       shoe.endTime = endTime;
       shoe.totalHands = totalHands;
       shoe.cardsDealt = cardsDealt;
+      if (peakTrueCount != null) shoe.peakTrueCount = peakTrueCount;
+      if (minTrueCount != null) shoe.minTrueCount = minTrueCount;
+      if (cardDistribution) shoe.cardDistribution = cardDistribution;
       return txPut('shoes', shoe).then(() => syncRecordToFile('shoes', shoe));
     }
   });

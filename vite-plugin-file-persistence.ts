@@ -23,6 +23,7 @@ const SHOE_FIELDS: Record<string, string> = {
   id: 'id', sessionId: 'session_id', startTime: 'start_time',
   endTime: 'end_time', totalHands: 'total_hands', cardsDealt: 'cards_dealt',
   peakTrueCount: 'peak_true_count', minTrueCount: 'min_true_count',
+  cardDistribution: 'card_distribution',
 };
 
 const HAND_FIELDS: Record<string, string> = {
@@ -35,10 +36,11 @@ const HAND_FIELDS: Record<string, string> = {
   outcome: 'outcome', betAmount: 'bet_amount', netResult: 'net_result',
   boxIndex: 'box_index', seatNumber: 'seat_number', handIndex: 'hand_index',
   doubled: 'doubled', fromSplit: 'from_split',
+  dealerCards: 'dealer_cards',
 };
 
 // Fields that contain JSON objects/arrays
-const JSON_FIELDS = new Set(['rules', 'dealerUpcard', 'playerCards']);
+const JSON_FIELDS = new Set(['rules', 'dealerUpcard', 'playerCards', 'dealerCards', 'cardDistribution']);
 // Boolean fields stored as 0/1/null
 const BOOL_FIELDS = new Set(['doubled', 'fromSplit']);
 
@@ -162,6 +164,15 @@ function initDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_hands_shoe ON hands(shoe_id);
     CREATE INDEX IF NOT EXISTS idx_hands_timestamp ON hands(timestamp);
   `);
+
+  // Idempotent schema migrations for new columns
+  const migrations = [
+    'ALTER TABLE hands ADD COLUMN dealer_cards TEXT',
+    'ALTER TABLE shoes ADD COLUMN card_distribution TEXT',
+  ];
+  for (const sql of migrations) {
+    try { db.exec(sql); } catch { /* column already exists */ }
+  }
 
   return db;
 }
