@@ -631,6 +631,7 @@ export const useGameStore = create<GameState>()(
         // Undo split decision: if two adjacent hands each have 1 card and fromSplit, merge back
         if (state.handPhase === 'player') {
           const seat = state.seats[state.activeSeatIndex];
+          if (!seat) { set(updates); return; }
           const hi = seat.activeHandIndex;
           const hand = seat.hands[hi];
           if (hand && hand.fromSplit && hand.cards.length === 1 && hi + 1 < seat.hands.length) {
@@ -871,6 +872,7 @@ export const useGameStore = create<GameState>()(
           } else {
             // Fallback: undo from active seat
             const seat = state.seats[state.activeSeatIndex];
+            if (!seat) { set(updates); return; }
             const hand = seat.hands[seat.activeHandIndex];
             if (hand.cards.length > 0) {
               const newHand = { ...hand, cards: hand.cards.slice(0, -1) };
@@ -1074,7 +1076,7 @@ export const useGameStore = create<GameState>()(
 
       toggleObserveRound: () => {
         const state = get();
-        if (state.handPhase !== 'idle' || state.playerSeatNumbers.length > 0) return;
+        if (state.handPhase !== 'idle' || state.playerSeatNumbers.length > 0 || state.occupiedSeatNumbers.length === 0) return;
         set({ _observeRound: !state._observeRound });
       },
 
@@ -1257,11 +1259,13 @@ export const useGameStore = create<GameState>()(
         });
 
         // Also remove from occupied if it was there
+        // Reset observe mode if player seats are being added
         set({
           playerSeatNumbers: newNumbers,
           occupiedSeatNumbers: state.occupiedSeatNumbers.filter((n) => !newNumbers.includes(n)),
           seats: newSeats,
           activeSeatIndex: 0,
+          ...(newNumbers.length > 0 ? { _observeRound: false } : {}),
         });
       },
 

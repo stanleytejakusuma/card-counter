@@ -155,8 +155,9 @@ export function CardButtons() {
 
   function handleEndRound() {
     const game = useGameStore.getState();
+    const wasObserving = game._observeRound;
     game.confirmHand();
-    useSessionStore.getState().incrementHands();
+    if (!wasObserving) useSessionStore.getState().incrementHands();
     game.nextHand();
   }
 
@@ -338,7 +339,7 @@ export function CardButtons() {
         ) : (
           /* Idle / deal mode: Observe + Undo + New Shoe */
           <>
-            {playerSeatNumbers.length === 0 && (
+            {playerSeatNumbers.length === 0 && occupiedSeatNumbers.length > 0 && (
               <button
                 onClick={() => useGameStore.getState().toggleObserveRound()}
                 className={`${_observeRound ? 'bg-amber-900/60 border-amber-500' : 'bg-amber-900/40 border-amber-700'} border rounded-lg py-2.5 text-xs font-bold text-amber-300 uppercase hover:bg-amber-800/40 active:scale-95 transition-all`}

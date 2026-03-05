@@ -359,8 +359,21 @@ export default function filePersistencePlugin(): Plugin {
 
           if (method === 'PUT') {
             const body = await readBody(req);
-            const record = JSON.parse(body) as Record<string, unknown>;
-            const row = toRow(record, table.fieldMap);
+            const incoming = JSON.parse(body) as Record<string, unknown>;
+
+            // Merge with existing row to preserve fields not in the payload
+            // (e.g. pagehide sends partial SessionRecord missing startTime/rules)
+            if (incoming.id) {
+              const existingRow = db.prepare(`SELECT * FROM ${collection} WHERE id = ?`).get(incoming.id as string) as Record<string, unknown> | undefined;
+              if (existingRow) {
+                const existing = fromRow(existingRow, table.revMap);
+                for (const key of Object.keys(existing)) {
+                  if (!(key in incoming)) incoming[key] = existing[key];
+                }
+              }
+            }
+
+            const row = toRow(incoming, table.fieldMap);
             const cols = Object.values(table.fieldMap);
             table.upsert.run(...cols.map(c => row[c]));
             json(res, 200, { ok: true });
