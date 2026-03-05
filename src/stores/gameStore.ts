@@ -212,6 +212,9 @@ export const useGameStore = create<GameState>()(
         const countDelta = getCardCountValue(rank);
         const state = get();
 
+        // No player seats and not observing — block input
+        if (state.playerSeatNumbers.length === 0 && !state._observeRound) return;
+
         const updates: Partial<GameState> = {
           runningCount: state.runningCount + countDelta,
           cardsSeen: state.cardsSeen + 1,
