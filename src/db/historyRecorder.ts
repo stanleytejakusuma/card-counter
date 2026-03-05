@@ -210,6 +210,7 @@ export function initHistoryRecorder() {
               seatNumber: seat.seatNumber,
               handIndex: j,
               label,
+              trueCount: tc,
             });
           }
 
@@ -262,6 +263,9 @@ export function initHistoryRecorder() {
           prevState.shoeHandCount,
           prevState.cardsSeen,
         ).catch(console.error);
+
+        // Record peak TC for shoe quality tracking
+        session.recordShoePeakTC(prevState.peakTrueCount);
       }
 
       if (currentShoeId && sessionId) {

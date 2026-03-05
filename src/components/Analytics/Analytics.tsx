@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { SessionPnL } from './SessionPnL.js';
+import { TCBracketStats } from './TCBracketStats.js';
+import { ShoeQuality } from './ShoeQuality.js';
 
 export function Analytics() {
   const [collapsed, setCollapsed] = useState(false);
@@ -16,7 +18,13 @@ export function Analytics() {
         <span className="text-[10px] text-neutral-700">{collapsed ? '+' : '-'}</span>
       </button>
 
-      {!collapsed && <SessionPnL />}
+      {!collapsed && (
+        <>
+          <SessionPnL />
+          <TCBracketStats />
+          <ShoeQuality />
+        </>
+      )}
     </div>
   );
 }

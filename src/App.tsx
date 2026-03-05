@@ -2,6 +2,7 @@ import { HUDLayout } from './components/Layout/HUDLayout.js';
 import { StealthOverlay } from './components/Layout/StealthOverlay.js';
 import { SessionBar } from './components/Session/SessionBar.js';
 import { ShoeProgress } from './components/Session/ShoeProgress.js';
+import { SessionStats } from './components/Session/SessionStats.js';
 import { TrueCountDisplay } from './components/HUD/TrueCountDisplay.js';
 import { BetDisplay } from './components/HUD/BetDisplay.js';
 import { HandDisplay } from './components/Input/HandDisplay.js';
@@ -63,6 +64,7 @@ export default function App() {
         {/* Session bar */}
         <SessionBar />
         <ShoeProgress />
+        <SessionStats />
 
         {/* Main count display */}
         <div className="border border-neutral-800 rounded-lg p-4 space-y-2">

@@ -15,6 +15,20 @@ interface PendingOutcome {
   seatNumber: number;
   handIndex: number;
   label: string;
+  trueCount: number;
+}
+
+interface TCBracketRecord {
+  w: number;
+  l: number;
+  p: number;
+}
+
+interface TCBrackets {
+  negative: TCBracketRecord; // TC <= 0
+  low: TCBracketRecord;     // TC 1–1.9
+  mid: TCBracketRecord;     // TC 2–3.9
+  high: TCBracketRecord;    // TC 4+
 }
 
 interface SessionState {
@@ -37,6 +51,8 @@ interface SessionState {
   handsPushed: number;
   blackjacks: number;
   deviationsTaken: number;
+  tcBrackets: TCBrackets;
+  shoePeakTCs: number[];
 
   setBankroll: (amount: number) => void;
   setStartingBankroll: (amount: number) => void;
@@ -51,6 +67,7 @@ interface SessionState {
   clearAwaitingOutcome: () => void;
   recordOutcome: (outcome: HandOutcome) => void;
   incrementDeviations: () => void;
+  recordShoePeakTC: (peakTC: number) => void;
 
   readonly awaitingOutcome: boolean;
 }
@@ -77,6 +94,13 @@ export const useSessionStore = create<SessionState>()(
       handsPushed: 0,
       blackjacks: 0,
       deviationsTaken: 0,
+      tcBrackets: {
+        negative: { w: 0, l: 0, p: 0 },
+        low: { w: 0, l: 0, p: 0 },
+        mid: { w: 0, l: 0, p: 0 },
+        high: { w: 0, l: 0, p: 0 },
+      },
+      shoePeakTCs: [],
 
       get awaitingOutcome(): boolean {
         const state = get();
@@ -109,6 +133,13 @@ export const useSessionStore = create<SessionState>()(
           handsPushed: 0,
           blackjacks: 0,
           deviationsTaken: 0,
+          tcBrackets: {
+            negative: { w: 0, l: 0, p: 0 },
+            low: { w: 0, l: 0, p: 0 },
+            mid: { w: 0, l: 0, p: 0 },
+            high: { w: 0, l: 0, p: 0 },
+          },
+          shoePeakTCs: [],
         })),
 
       setAwaitingOutcomes: (outcomes) =>
@@ -154,6 +185,20 @@ export const useSessionStore = create<SessionState>()(
             break;
         }
 
+        // Bucket TC for bracket stats
+        const tc = current.trueCount;
+        const bracketKey: keyof TCBrackets =
+          tc <= 0 ? 'negative' : tc < 2 ? 'low' : tc < 4 ? 'mid' : 'high';
+        const tcField: 'w' | 'l' | 'p' =
+          outcome === 'push' ? 'p'
+            : (outcome === 'loss' || outcome === 'surrender') ? 'l'
+            : 'w';
+        const updatedBrackets = { ...state.tcBrackets };
+        updatedBrackets[bracketKey] = {
+          ...updatedBrackets[bracketKey],
+          [tcField]: updatedBrackets[bracketKey][tcField] + 1,
+        };
+
         const nextIndex = state.activeOutcomeIndex + 1;
         const allDone = nextIndex >= state.awaitingOutcomes.length;
 
@@ -162,6 +207,7 @@ export const useSessionStore = create<SessionState>()(
           activeOutcomeIndex: nextIndex,
           ...(allDone ? { awaitingOutcomes: [] as PendingOutcome[], activeOutcomeIndex: 0 } : {}),
           ...counterUpdates,
+          tcBrackets: updatedBrackets,
         });
 
         // Update hand record in IndexedDB (fire-and-forget)
@@ -170,21 +216,34 @@ export const useSessionStore = create<SessionState>()(
 
       incrementDeviations: () =>
         set((state) => ({ deviationsTaken: state.deviationsTaken + 1 })),
+
+      recordShoePeakTC: (peakTC: number) =>
+        set((state) => ({ shoePeakTCs: [...state.shoePeakTCs, peakTC] })),
     }),
     {
       name: 'card-counter-session',
-      version: 3,
+      version: 5,
       migrate: (persisted: any, version: number) => {
         if (version < 2) {
-          return {
+          persisted = {
             ...persisted,
             awaitingOutcomes: [],
             activeOutcomeIndex: 0,
           };
         }
-        if (version < 3) {
-          // v2→v3: PendingOutcome shape changed but isn't persisted, no migration needed
-          return persisted;
+        if (version < 4) {
+          persisted = {
+            ...persisted,
+            tcBrackets: {
+              negative: { w: 0, l: 0, p: 0 },
+              low: { w: 0, l: 0, p: 0 },
+              mid: { w: 0, l: 0, p: 0 },
+              high: { w: 0, l: 0, p: 0 },
+            },
+          };
+        }
+        if (version < 5) {
+          persisted = { ...persisted, shoePeakTCs: [] };
         }
         return persisted;
       },
@@ -204,6 +263,8 @@ export const useSessionStore = create<SessionState>()(
         handsPushed: state.handsPushed,
         blackjacks: state.blackjacks,
         deviationsTaken: state.deviationsTaken,
+        tcBrackets: state.tcBrackets,
+        shoePeakTCs: state.shoePeakTCs,
       }),
     },
   ),
