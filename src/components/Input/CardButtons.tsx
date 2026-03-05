@@ -71,14 +71,10 @@ export function CardButtons() {
     const game = useGameStore.getState();
     const ctxH = game.cardContextHistory;
     const seatTag = `S${_activePlaySeat}`;
-    let dIdx = -1;
+    // Scope to current round: entries after the last table-phase ('T') target
+    let roundStart = 0;
     for (let ci = ctxH.length - 1; ci >= 0; ci--) {
-      if (ctxH[ci].target === 'D') { dIdx = ci; break; }
-    }
-    let roundStart = dIdx >= 0 ? dIdx : 0;
-    for (let ci = roundStart - 1; ci >= 0; ci--) {
-      if (ctxH[ci].target.startsWith('S')) roundStart = ci;
-      else break;
+      if (ctxH[ci].target === 'T') { roundStart = ci + 1; break; }
     }
     const roundCtx = ctxH.slice(roundStart);
     const seatEntries = roundCtx.filter((e) => e.target === seatTag);

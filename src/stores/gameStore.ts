@@ -401,15 +401,11 @@ export const useGameStore = create<GameState>()(
             }
 
             // Compute occupied seat/sub-hand total from context history + new card
+            // Scope to current round: entries after the last table-phase ('T') target
             const ctxH = state.cardContextHistory;
-            let dIdx = -1;
+            let roundStart = 0;
             for (let ci = ctxH.length - 1; ci >= 0; ci--) {
-              if (ctxH[ci].target === 'D') { dIdx = ci; break; }
-            }
-            let roundStart = dIdx >= 0 ? dIdx : 0;
-            for (let ci = roundStart - 1; ci >= 0; ci--) {
-              if (ctxH[ci].target.startsWith('S')) roundStart = ci;
-              else break;
+              if (ctxH[ci].target === 'T') { roundStart = ci + 1; break; }
             }
             const roundCtx = ctxH.slice(roundStart);
 
@@ -680,11 +676,17 @@ export const useGameStore = create<GameState>()(
           // Only N deal entries come after D in S..D..S order
           const dealCardCount = playOrder.length;
           const ctxH = state.cardContextHistory;
-          let lastDIdx = -1;
+          // Scope to current round: entries after the last table-phase ('T') target
+          let roundBoundary = 0;
           for (let ci = ctxH.length - 1; ci >= 0; ci--) {
-            if (ctxH[ci].target === 'D') { lastDIdx = ci; break; }
+            if (ctxH[ci].target === 'T') { roundBoundary = ci + 1; break; }
           }
-          const afterDealer = lastDIdx >= 0 ? ctxH.slice(lastDIdx + 1) : ctxH;
+          const roundCtxFull = ctxH.slice(roundBoundary);
+          let lastDIdx = -1;
+          for (let ci = roundCtxFull.length - 1; ci >= 0; ci--) {
+            if (roundCtxFull[ci].target === 'D') { lastDIdx = ci; break; }
+          }
+          const afterDealer = lastDIdx >= 0 ? roundCtxFull.slice(lastDIdx + 1) : roundCtxFull;
           const hasPlayCards = afterDealer.length > dealCardCount;
 
           let shouldRevertNav = false;
@@ -711,13 +713,8 @@ export const useGameStore = create<GameState>()(
               let prevSeatBusted = false;
               const prevTag = `S${prevSeatNum}`;
               if (state.occupiedSeatNumbers.includes(prevSeatNum)) {
-                // Occupied seat: compute total from context
-                let roundStart = lastDIdx >= 0 ? lastDIdx : ctxH.length;
-                for (let ci = roundStart - 1; ci >= 0; ci--) {
-                  if (ctxH[ci].target.startsWith('S')) roundStart = ci;
-                  else break;
-                }
-                const roundCtx = ctxH.slice(roundStart);
+                // Occupied seat: compute total from current round context
+                const roundCtx = roundCtxFull;
 
                 if (state._occupiedSplitSeats.includes(prevSeatNum)) {
                   // Split: check the sub-hand that was last active

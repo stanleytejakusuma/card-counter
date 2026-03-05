@@ -20,17 +20,15 @@ export function Scoreboard() {
 
   const showDealer = dealerUpcard ?? lastConfirmedRound?.dealerUpcard ?? null;
 
-  // Derive occupied seat cards from cardContextHistory (current round spans both sides of D)
+  // Derive occupied seat cards from cardContextHistory (current round only)
+  // Scope to entries after the last table-phase ('T') target to avoid previous round bleed
   const ctxHistory = cardContextHistory ?? [];
-  let dealerIdx = -1;
+  let roundStart = 0;
   for (let i = ctxHistory.length - 1; i >= 0; i--) {
-    if (ctxHistory[i].target === 'D') { dealerIdx = i; break; }
-  }
-  // Round starts at first consecutive S entry before D (or trailing S entries if no D yet)
-  let roundStart = dealerIdx >= 0 ? dealerIdx : ctxHistory.length;
-  for (let i = (dealerIdx >= 0 ? dealerIdx : ctxHistory.length) - 1; i >= 0; i--) {
-    if (ctxHistory[i].target.startsWith('S')) roundStart = i;
-    else break;
+    if (ctxHistory[i].target === 'T') {
+      roundStart = i + 1;
+      break;
+    }
   }
   const currentRoundCtx = ctxHistory.slice(roundStart);
   // Parse occupied seat cards, handling splits (S{n}.1 / S{n}.2)
