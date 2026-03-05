@@ -13,6 +13,8 @@ import { CardButtons } from './components/Input/CardButtons.js';
 import { HistoryOverlay } from './components/History/HistoryOverlay.js';
 import { Scoreboard } from './components/Scoreboard/Scoreboard.js';
 import { HowToUse } from './components/Guide/HowToUse.js';
+import { Analytics } from './components/Analytics/Analytics.js';
+import { CardDistribution } from './components/Analytics/CardDistribution.js';
 import { shouldTakeInsurance } from './engine/strategy.js';
 import { calculateTrueCount } from './engine/counting.js';
 import { calculateHandTotal } from './engine/hand.js';
@@ -57,7 +59,7 @@ export default function App() {
     <>
       <StealthOverlay />
       <HistoryOverlay />
-      <HUDLayout guide={<HowToUse />} scoreboard={<Scoreboard />}>
+      <HUDLayout guide={<><HowToUse /><Analytics /></>} scoreboard={<><Scoreboard /><CardDistribution /></>}>
         {/* Session bar */}
         <SessionBar />
         <ShoeProgress />
@@ -70,7 +72,7 @@ export default function App() {
         </div>
 
         {/* Hand & strategy */}
-        <div className="border border-neutral-800 rounded-lg p-4 space-y-2">
+        <div className="border border-neutral-800 rounded-lg p-4 space-y-2 min-h-[12rem]">
           <HandDisplay />
           <StrategyAdvice />
         </div>
@@ -82,7 +84,9 @@ export default function App() {
         </div>
 
         {/* Card feedback */}
-        <CardFeedback />
+        <div className="min-h-[4.5rem]">
+          <CardFeedback />
+        </div>
 
         {/* Card & action buttons */}
         <CardButtons />
