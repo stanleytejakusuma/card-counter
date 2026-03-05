@@ -93,8 +93,8 @@ export interface SpreadParams {
 }
 
 /**
- * Simple TC spread: bet = floor(TC) × unitSize when TC >= 2, else minBet.
- * Practical for small bankrolls where Kelly fractions round to minimum.
+ * TC spread: bet = minBet + (floor(TC) - 1) × unitSize when TC >= 2, else minBet.
+ * unitSize is the increment per TC level above the table minimum.
  */
 export function calculateSpreadBet(params: SpreadParams): BetRecommendation {
   const { trueCount, minBet, maxBet, unitSize } = params;
@@ -110,7 +110,7 @@ export function calculateSpreadBet(params: SpreadParams): BetRecommendation {
     };
   }
 
-  let bet = Math.floor(trueCount) * unitSize;
+  let bet = minBet + (Math.floor(trueCount) - 1) * unitSize;
   bet = Math.max(minBet, Math.min(maxBet, bet));
 
   return {
@@ -168,7 +168,7 @@ export function calculateRecommendedHands(params: HandsParams): HandsRecommendat
 
   if (!canPlayTwo) {
     // Bankroll too thin for multi-hand — single hand with spread bet
-    const singleBet = Math.max(minBet, Math.min(maxBet, Math.floor(trueCount) * unitSize));
+    const singleBet = Math.max(minBet, Math.min(maxBet, minBet + (Math.floor(trueCount) - 1) * unitSize));
     return {
       hands: 1,
       perHandBet: singleBet,
@@ -192,7 +192,7 @@ export function calculateRecommendedHands(params: HandsParams): HandsRecommendat
   }
 
   // Base single-hand bet from spread
-  const singleBet = Math.max(minBet, Math.min(maxBet, Math.floor(trueCount) * unitSize));
+  const singleBet = Math.max(minBet, Math.min(maxBet, minBet + (Math.floor(trueCount) - 1) * unitSize));
 
   // Adjust per-hand bet for multi-hand correlation
   let perHandBet = Math.round(singleBet * correlationFactor / unitSize) * unitSize;

@@ -86,24 +86,28 @@ describe('calculateKellyBet', () => {
 });
 
 describe('calculateSpreadBet', () => {
-  const params = { minBet: 1, maxBet: 20, unitSize: 1 };
+  const params = { minBet: 5, maxBet: 50, unitSize: 5 };
 
   it('returns min bet at TC < 2', () => {
-    expect(calculateSpreadBet({ ...params, trueCount: -1 }).amount).toBe(1);
-    expect(calculateSpreadBet({ ...params, trueCount: 0 }).amount).toBe(1);
-    expect(calculateSpreadBet({ ...params, trueCount: 1 }).amount).toBe(1);
-    expect(calculateSpreadBet({ ...params, trueCount: 1.9 }).amount).toBe(1);
+    expect(calculateSpreadBet({ ...params, trueCount: -1 }).amount).toBe(5);
+    expect(calculateSpreadBet({ ...params, trueCount: 0 }).amount).toBe(5);
+    expect(calculateSpreadBet({ ...params, trueCount: 1 }).amount).toBe(5);
+    expect(calculateSpreadBet({ ...params, trueCount: 1.9 }).amount).toBe(5);
   });
 
-  it('bets floor(TC) × unit at TC >= 2', () => {
-    expect(calculateSpreadBet({ ...params, trueCount: 2 }).amount).toBe(2);
-    expect(calculateSpreadBet({ ...params, trueCount: 3 }).amount).toBe(3);
-    expect(calculateSpreadBet({ ...params, trueCount: 5 }).amount).toBe(5);
-    expect(calculateSpreadBet({ ...params, trueCount: 5.8 }).amount).toBe(5);
+  it('bets minBet + (floor(TC) - 1) × unit at TC >= 2', () => {
+    // TC 2: $5 + 1×$5 = $10
+    expect(calculateSpreadBet({ ...params, trueCount: 2 }).amount).toBe(10);
+    // TC 3: $5 + 2×$5 = $15
+    expect(calculateSpreadBet({ ...params, trueCount: 3 }).amount).toBe(15);
+    // TC 5: $5 + 4×$5 = $25
+    expect(calculateSpreadBet({ ...params, trueCount: 5 }).amount).toBe(25);
+    // TC 5.8: floor(5.8)=5, $5 + 4×$5 = $25
+    expect(calculateSpreadBet({ ...params, trueCount: 5.8 }).amount).toBe(25);
   });
 
   it('clamps to maxBet', () => {
-    expect(calculateSpreadBet({ ...params, trueCount: 25 }).amount).toBe(20);
+    expect(calculateSpreadBet({ ...params, trueCount: 25 }).amount).toBe(50);
   });
 
   it('reports edge and hasEdge correctly', () => {
@@ -113,7 +117,9 @@ describe('calculateSpreadBet', () => {
   });
 
   it('reports correct units', () => {
+    // TC 5: $25 / $5 = 5 units
     expect(calculateSpreadBet({ ...params, trueCount: 5 }).units).toBe(5);
-    expect(calculateSpreadBet({ ...params, trueCount: 2, unitSize: 2 }).units).toBe(2);
+    // TC 2, unit=$10: $5 + 1×$10 = $15, $15/$10 = 1.5 units
+    expect(calculateSpreadBet({ ...params, trueCount: 2, unitSize: 10 }).units).toBe(1.5);
   });
 });

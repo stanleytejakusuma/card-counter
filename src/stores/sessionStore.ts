@@ -79,7 +79,7 @@ export const useSessionStore = create<SessionState>()(
       startingBankroll: 0,
       minBet: 5,
       maxBet: 50,
-      unitSize: 1,
+      unitSize: 5,
       kellyFraction: 0.25,
       handsPlayed: 0,
       shoesPlayed: 0,

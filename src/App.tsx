@@ -61,41 +61,41 @@ export default function App() {
       <StealthOverlay />
       <HistoryOverlay />
       <HUDLayout guide={<><HowToUse /><Analytics /></>} scoreboard={<><Scoreboard /><CardDistribution /></>}>
-        {/* Session bar */}
-        <SessionBar />
-        <ShoeProgress />
-        <SessionStats />
+        {/* Scrollable info area */}
+        <div className="flex-1 overflow-y-auto space-y-3 min-h-0">
+          <SessionBar />
+          <ShoeProgress />
+          <SessionStats />
 
-        {/* Main count display */}
-        <div className="border border-neutral-800 rounded-lg p-4 space-y-2">
-          <TrueCountDisplay />
-          <BetDisplay />
-          <InsuranceIndicator />
+          {/* Main count display */}
+          <div className="border border-neutral-800 rounded-lg p-4 space-y-2">
+            <TrueCountDisplay />
+            <BetDisplay />
+            <InsuranceIndicator />
+          </div>
+
+          {/* Hand & strategy */}
+          <div className="border border-neutral-800 rounded-lg p-4 space-y-2">
+            <HandDisplay />
+            <StrategyAdvice />
+          </div>
+
+          {/* Bottom stats bar */}
+          <div className="flex items-center justify-between text-sm border border-neutral-800 rounded-lg px-4 py-2">
+            <RunningCount />
+            <DecksRemaining />
+          </div>
         </div>
 
-        {/* Hand & strategy */}
-        <div className="border border-neutral-800 rounded-lg p-4 space-y-2 min-h-[12rem]">
-          <HandDisplay />
-          <StrategyAdvice />
-        </div>
-
-        {/* Bottom stats bar */}
-        <div className="flex items-center justify-between text-sm border border-neutral-800 rounded-lg px-4 py-2">
-          <RunningCount />
-          <DecksRemaining />
-        </div>
-
-        {/* Card feedback */}
-        <div className="min-h-[4.5rem]">
-          <CardFeedback />
-        </div>
-
-        {/* Card & action buttons */}
-        <CardButtons />
-
-        {/* Flow hint */}
-        <div className="text-center text-neutral-700 text-[10px] mt-2">
-          Deal → Play → Table → End Round
+        {/* Fixed input area — card buttons never shift */}
+        <div className="flex-shrink-0 space-y-3 pt-3">
+          <div className="min-h-[4.5rem]">
+            <CardFeedback />
+          </div>
+          <CardButtons />
+          <div className="text-center text-neutral-700 text-[10px] mt-2">
+            Deal → Play → Table → End Round
+          </div>
         </div>
       </HUDLayout>
     </>
