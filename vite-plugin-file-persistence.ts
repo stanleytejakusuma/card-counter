@@ -263,10 +263,12 @@ function migrateJsonToSqlite(db: Database.Database) {
     db.prepare('INSERT OR REPLACE INTO stores (name, data) VALUES (?, ?)').run('_meta', JSON.stringify({ json_migrated: true }));
   });
 
-  migrate();
-
-  // Re-enable FK checks
-  db.pragma('foreign_keys = ON');
+  try {
+    migrate();
+  } finally {
+    // Re-enable FK checks even if migration throws
+    db.pragma('foreign_keys = ON');
+  }
 
   // Rename old directories
   if (existsSync(STORES_DIR)) {

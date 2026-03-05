@@ -940,6 +940,7 @@ export const useGameStore = create<GameState>()(
           _splitDealInProgress: false,
           _occupiedSplitSeats: [],
           _occupiedActiveSubHand: 0,
+          _observeRound: false,
         });
       },
 

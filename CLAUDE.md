@@ -109,6 +109,7 @@ src/
 - `card-counter-tc-spread-bet`: Replaced Kelly with TC spread: bet = floor(TC) × unitSize when TC >= 2, else minBet. calculateSpreadBet() in kelly.ts. Defaults: $1 min, $20 max, $1 unit. Kelly kept but unused.
 - `card-counter-undo-table-regression`: Undo in table phase with no dealer hits regresses handPhase to 'player', restores _activePlaySeat to last seat in play order. Pure navigation undo, no card removal.
 - `card-counter-observe-mode`: Observe round skips player hands, tracks only occupied seat cards for running count. _observeRound + getPlayOrder() helper replaces 8+ hardcoded play order calls. Amber UI button in idle phase.
+- `card-counter-getplayorder-recursion-fix`: getPlayOrder() had infinite recursion in non-observe branch. Must return computed value, not call itself. Also: undoCurrentHand() must reset _observeRound to false.
 
 ### UI Features
 - `card-counter-occupied-seats`: Scoreboard seats have 3 states (blue=yours, amber=other player, gray=empty). Right-click toggles occupied. gameStore.occupiedSeatNumbers[].
