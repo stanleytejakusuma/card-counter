@@ -126,7 +126,7 @@ interface GameState {
   setActiveSeat: (index: number) => void;
   nextHandOrSeat: () => void;
   updateRoundOutcome: (roundIndex: number, seatIndex: number, handIndex: number, outcome: HandOutcome, netResult: number) => void;
-  startObserveRound: () => void;
+  toggleObserveRound: () => void;
 
   // Legacy compat — point to seat equivalents
   readonly numBoxes: number;
@@ -1069,10 +1069,10 @@ export const useGameStore = create<GameState>()(
 
       toggleWong: () => set((state) => ({ isWongedOut: !state.isWongedOut })),
 
-      startObserveRound: () => {
+      toggleObserveRound: () => {
         const state = get();
-        if (state.handPhase !== 'idle' || state.occupiedSeatNumbers.length === 0) return;
-        set({ _observeRound: true });
+        if (state.handPhase !== 'idle') return;
+        set({ _observeRound: !state._observeRound });
       },
 
       newShoe: () =>
