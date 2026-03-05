@@ -77,7 +77,7 @@ src/
 
 ## Key Rules
 
-- Default: 8-deck S17 DAS (Evolution Gaming standard)
+- Default: 8-deck S17 NDAS (Evolution Gaming standard)
 - S17 tables verified against Wizard of Odds 8-deck charts
 - True count displayed to 1 decimal, raw float used for threshold comparisons
 - All card inputs update running count regardless of hand phase
@@ -87,7 +87,7 @@ src/
 - Outcome keys only active during awaitingOutcome state; card keys clear it silently
 - History viewer blocks all game keys while open
 - 7-seat table model (Evolution Gaming), player occupies up to 4 seats
-- Each seat supports up to 4 hands from splits
+- Each seat supports 1 split (2 hands max)
 - Per-seat bet overrides (null = Kelly default)
 - Even money: BJ vs dealer Ace, 1:1 payout
 - Split aces auto-advance after 1 card each
@@ -103,11 +103,12 @@ src/
 - `card-counter-partial-upsert-merge`: PUT handler reads existing DB row and merges incoming fields over it before upsert. Prevents pagehide partial SessionRecord from nullifying startTime/rules.
 
 ### Game Logic
-- `card-counter-split-deal-phase`: _splitDealInProgress gates decisions until all split hands get 2nd card. Auto-advances through hands, handles re-splits, undo regresses then merges. Split aces auto-complete. Max 4 hands/seat.
+- `card-counter-evolution-rules-defaults`: Evolution BJ: 8-deck S17 NDAS, max 1 split (2 hands). settingsStore defaults doubleAfterSplit: false. Strategy engine handles NDAS via Ph → H conditional.
+- `card-counter-split-deal-phase`: _splitDealInProgress gates decisions until all split hands get 2nd card. Auto-advances through hands, handles re-splits, undo regresses then merges. Split aces auto-complete. Max 1 split/seat (2 hands).
 - `card-counter-multi-seat-play-order`: _dealOrderIndex for round-robin dealing, _activePlaySeat for play-order advancement through player+occupied seats. Phase-aware button layout (deal→play→table→end round).
 - `card-counter-auto-outcome`: determineOutcome() in hand.ts computes W/L/P/BJ from player vs dealer totals. Called in confirmHand() with [dealerUpcard, ..._dealerHits]. Auto-records via historyRecorder, skips outcome UI prompt. Player seats only.
 - `card-counter-occupied-splits`: Other players can split pairs. _occupiedSplitSeats + _occupiedActiveSubHand state. Cards tagged S{n}.1/S{n}.2. Scoreboard renders split hands with pipe separator. Next/Tab advances sub-hands.
-- `card-counter-tc-spread-bet`: Replaced Kelly with TC spread: bet = floor(TC) × unitSize when TC >= 2, else minBet. calculateSpreadBet() in kelly.ts. Defaults: $1 min, $20 max, $1 unit. Kelly kept but unused.
+- `card-counter-tc-spread-bet`: TC spread: bet = minBet + (floor(TC) - 1) × unitSize when TC >= 2, else minBet. 1-10 spread on $5 table. calculateSpreadBet() in kelly.ts. Defaults: $5 min, $50 max, $5 unit.
 - `card-counter-undo-table-regression`: Undo in table phase with no dealer hits regresses handPhase to 'player', restores _activePlaySeat to last seat in play order. Pure navigation undo, no card removal.
 - `card-counter-observe-mode`: Observe round skips player hands, tracks only occupied seat cards for running count. _observeRound + getPlayOrder() helper replaces 8+ hardcoded play order calls. Amber UI button in idle phase.
 - `card-counter-getplayorder-recursion-fix`: getPlayOrder() had infinite recursion in non-observe branch. Must return computed value, not call itself. Also: undoCurrentHand() must reset _observeRound to false.
@@ -118,3 +119,4 @@ src/
 - `card-counter-touch-first-ui`: Keyboard shortcuts removed (useKeyboard gutted). All input via touch/mouse. Draw history strip in CardFeedback with colored chips. Scoreboard dealer in current round section with full hand + total.
 - `card-counter-shoes-played-counter`: shoesPlayed in sessionStore, incremented on NEW SHOE press. Shown in SessionBar next to hands count (hidden until first shoe). Reset on resetSession().
 - `card-counter-dashboard-analytics`: SessionStats (center column, always visible) shows P&L/winrate/$/hr/hands-hr/hands-shoe. TCBracketStats + ShoeQuality in Analytics panel. tcBrackets + shoePeakTCs in sessionStore (persist v5). trueCount on PendingOutcome. ShoeProgress has % label + amber 75% shuffle zone.
+- `card-counter-layout-pin`: Center column flex h-dvh. Info area scrolls (flex-1 overflow-y-auto), CardButtons pinned bottom (flex-shrink-0). Prevents layout shift from InsuranceIndicator/StrategyAdvice/CardFeedback.

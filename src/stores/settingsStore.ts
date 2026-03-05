@@ -21,7 +21,7 @@ export const useSettingsStore = create<SettingsState>()(
       rules: {
         decks: 8,
         dealerStandsOnSoft17: true,
-        doubleAfterSplit: true,
+        doubleAfterSplit: false,
         lateSurrender: false,
         doubleAnyTwo: true,
       },
