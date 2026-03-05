@@ -100,6 +100,7 @@ src/
 - `card-counter-file-persistence`: Vite dev middleware persists localStorage/IndexedDB to JSON files in data/. Hydrate on boot → write-through on change → restore on browser clear.
 - `card-counter-sqlite-persistence`: Migrated from JSON to SQLite (better-sqlite3). DB at data/card-counter.db. Normalized schema (stores, sessions, shoes, hands) with cascading deletes, WAL mode. Auto-migrates existing JSON on first open, renames old dirs to .migrated.
 - `card-counter-sqlite-fk-migration-fix`: JSON→SQLite migration disables FK checks (PRAGMA foreign_keys = OFF) during transaction to handle orphaned shoes/hands, re-enables after.
+- `card-counter-partial-upsert-merge`: PUT handler reads existing DB row and merges incoming fields over it before upsert. Prevents pagehide partial SessionRecord from nullifying startTime/rules.
 
 ### Game Logic
 - `card-counter-split-deal-phase`: _splitDealInProgress gates decisions until all split hands get 2nd card. Auto-advances through hands, handles re-splits, undo regresses then merges. Split aces auto-complete. Max 4 hands/seat.
@@ -110,6 +111,7 @@ src/
 - `card-counter-undo-table-regression`: Undo in table phase with no dealer hits regresses handPhase to 'player', restores _activePlaySeat to last seat in play order. Pure navigation undo, no card removal.
 - `card-counter-observe-mode`: Observe round skips player hands, tracks only occupied seat cards for running count. _observeRound + getPlayOrder() helper replaces 8+ hardcoded play order calls. Amber UI button in idle phase.
 - `card-counter-getplayorder-recursion-fix`: getPlayOrder() had infinite recursion in non-observe branch. Must return computed value, not call itself. Also: undoCurrentHand() must reset _observeRound to false.
+- `card-counter-observe-mode-validation`: Observe constraints: idle + no player seats + ≥1 occupied seat. toggleSeat resets _observeRound. undoLastCard null-checks seat for empty seats. incrementHands skipped for observe rounds.
 
 ### UI Features
 - `card-counter-occupied-seats`: Scoreboard seats have 3 states (blue=yours, amber=other player, gray=empty). Right-click toggles occupied. gameStore.occupiedSeatNumbers[].
