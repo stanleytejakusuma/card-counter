@@ -349,13 +349,13 @@ export function CardButtons() {
             )}
             <button
               onClick={handleUndo}
-              className={`${playerSeatNumbers.length > 0 ? 'col-span-2 ' : ''}bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all`}
+              className={`${(playerSeatNumbers.length > 0 || occupiedSeatNumbers.length === 0) ? 'col-span-2 ' : ''}bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all`}
             >
               Undo
             </button>
             <button
               onClick={handleNewShoe}
-              className={`${playerSeatNumbers.length > 0 ? 'col-span-2 ' : ''}bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all`}
+              className={`${(playerSeatNumbers.length > 0 || occupiedSeatNumbers.length === 0) ? 'col-span-2 ' : ''}bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all`}
             >
               New Shoe
             </button>
