@@ -3,12 +3,10 @@ import { StealthOverlay } from './components/Layout/StealthOverlay.js';
 import { SessionBar } from './components/Session/SessionBar.js';
 import { ShoeProgress } from './components/Session/ShoeProgress.js';
 import { SessionStats } from './components/Session/SessionStats.js';
-import { TrueCountDisplay } from './components/HUD/TrueCountDisplay.js';
-import { BetDisplay } from './components/HUD/BetDisplay.js';
-import { HandDisplay } from './components/Input/HandDisplay.js';
-import { StrategyAdvice } from './components/Strategy/StrategyAdvice.js';
+import { CompactCountStrip } from './components/HUD/CompactCountStrip.js';
 import { RunningCount } from './components/HUD/RunningCount.js';
 import { DecksRemaining } from './components/HUD/DecksRemaining.js';
+import { HandDisplay } from './components/Input/HandDisplay.js';
 import { CardFeedback } from './components/Input/CardFeedback.js';
 import { CardButtons } from './components/Input/CardButtons.js';
 import { HistoryOverlay } from './components/History/HistoryOverlay.js';
@@ -61,39 +59,29 @@ export default function App() {
       <StealthOverlay />
       <HistoryOverlay />
       <HUDLayout guide={<><HowToUse /><Analytics /></>} scoreboard={<><Scoreboard /><CardDistribution /></>}>
-        {/* Scrollable info area */}
-        <div className="flex-1 overflow-y-auto space-y-3 min-h-0">
+        {/* TOP: Session telemetry — compact, always visible */}
+        <div className="flex-shrink-0 space-y-1">
           <SessionBar />
           <ShoeProgress />
           <SessionStats />
+        </div>
 
-          {/* Main count display */}
-          <div className="border border-neutral-800 rounded-lg p-4 space-y-2">
-            <TrueCountDisplay />
-            <BetDisplay />
-            <InsuranceIndicator />
-          </div>
+        {/* CENTER: Input zone — vertically centered in remaining space */}
+        <div className="flex-1 flex flex-col justify-center min-h-0 overflow-y-auto space-y-2">
+          <CompactCountStrip />
+          <CardButtons />
+          <CardFeedback />
+          <InsuranceIndicator />
+          <HandDisplay />
+        </div>
 
-          {/* Hand & strategy */}
-          <div className="border border-neutral-800 rounded-lg p-4 space-y-2">
-            <HandDisplay />
-            <StrategyAdvice />
-          </div>
-
-          {/* Bottom stats bar */}
-          <div className="flex items-center justify-between text-sm border border-neutral-800 rounded-lg px-4 py-2">
+        {/* BOTTOM: Secondary stats */}
+        <div className="flex-shrink-0 pt-1">
+          <div className="flex items-center justify-between text-sm border border-neutral-800 rounded-lg px-3 py-1.5">
             <RunningCount />
             <DecksRemaining />
           </div>
-        </div>
-
-        {/* Fixed input area — card buttons never shift */}
-        <div className="flex-shrink-0 space-y-3 pt-3">
-          <div className="min-h-[4.5rem]">
-            <CardFeedback />
-          </div>
-          <CardButtons />
-          <div className="text-center text-neutral-700 text-[10px] mt-2">
+          <div className="text-center text-neutral-700 text-[10px] mt-1">
             Deal → Play → Table → End Round
           </div>
         </div>
