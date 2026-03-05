@@ -187,6 +187,10 @@ export function getShoesBySession(sessionId: string): Promise<ShoeRecord[]> {
   return txGetAllByIndex<ShoeRecord>('shoes', 'sessionId', sessionId);
 }
 
+export function getHandsBySession(sessionId: string): Promise<HandRecord[]> {
+  return txGetAllByIndex<HandRecord>('hands', 'sessionId', sessionId);
+}
+
 export function getHandsByShoe(shoeId: string): Promise<HandRecord[]> {
   return txGetAllByIndex<HandRecord>('hands', 'shoeId', shoeId);
 }

@@ -1,5 +1,10 @@
 import type { HandRecord, ShoeRecord, SessionRecord } from '../engine/historyTypes.js';
-import { putHand, putShoe, putSession, updateShoeEnd } from './historyDb.js';
+import {
+  putHand, putShoe, putSession,
+  updateShoeEnd, updateSessionEnd,
+  getAllSessions, getHandsBySession, getShoesBySession,
+  deleteSession,
+} from './historyDb.js';
 import { useGameStore } from '../stores/gameStore.js';
 import { useSessionStore } from '../stores/sessionStore.js';
 import { useSettingsStore } from '../stores/settingsStore.js';
@@ -9,6 +14,101 @@ import { getStrategyAdvice } from '../engine/strategy.js';
 import { calculateSpreadBet } from '../engine/kelly.js';
 
 let initialized = false;
+let _finalizingSessionId: string | null = null;
+
+/**
+ * Finalize a session: close current shoe, tally stats from IDB hands, write session end.
+ * Guards against double-finalization.
+ */
+export async function finalizeSession(sessionId: string): Promise<void> {
+  if (_finalizingSessionId === sessionId) return;
+  _finalizingSessionId = sessionId;
+
+  try {
+    // Finalize current shoe if still open
+    const gameState = useGameStore.getState();
+    if (gameState.currentShoeId) {
+      await updateShoeEnd(
+        gameState.currentShoeId,
+        Date.now(),
+        gameState.shoeHandCount,
+        gameState.cardsSeen,
+      ).catch(console.error);
+    }
+
+    // Query all hands for this session from IndexedDB (source of truth)
+    const hands = await getHandsBySession(sessionId);
+    const shoes = await getShoesBySession(sessionId);
+
+    const stats = tallyHandStats(hands);
+    const sessionStore = useSessionStore.getState();
+
+    await updateSessionEnd(sessionId, Date.now(), sessionStore.bankroll, {
+      totalHands: stats.totalHands,
+      totalShoes: shoes.length,
+      handsWon: stats.handsWon,
+      handsLost: stats.handsLost,
+      handsPushed: stats.handsPushed,
+      blackjacks: stats.blackjacks,
+      deviationsTaken: sessionStore.deviationsTaken,
+    });
+  } finally {
+    _finalizingSessionId = null;
+  }
+}
+
+function tallyHandStats(hands: HandRecord[]) {
+  let handsWon = 0, handsLost = 0, handsPushed = 0, blackjacks = 0;
+  for (const h of hands) {
+    if (!h.outcome) continue;
+    switch (h.outcome) {
+      case 'win': case 'even_money': handsWon++; break;
+      case 'loss': case 'surrender': handsLost++; break;
+      case 'push': handsPushed++; break;
+      case 'blackjack': blackjacks++; handsWon++; break;
+    }
+  }
+  return { totalHands: hands.length, handsWon, handsLost, handsPushed, blackjacks };
+}
+
+/**
+ * Boot-time cleanup: delete empty orphan sessions, retroactively finalize sessions with hands but no endTime.
+ */
+export async function cleanupOrphanSessions(): Promise<void> {
+  const sessions = await getAllSessions();
+
+  for (const session of sessions) {
+    const hands = await getHandsBySession(session.id);
+
+    if (hands.length === 0 && !session.endTime) {
+      // Empty orphan — delete entirely
+      await deleteSession(session.id).catch(console.error);
+      continue;
+    }
+
+    if (hands.length > 0 && !session.endTime) {
+      // Has hands but never finalized — retroactively compute stats
+      const shoes = await getShoesBySession(session.id);
+      const stats = tallyHandStats(hands);
+      let netResult = 0;
+      for (const h of hands) {
+        if (h.netResult != null) netResult += h.netResult;
+      }
+      const endingBankroll = session.startingBankroll + netResult;
+      const lastHandTime = Math.max(...hands.map((h) => h.timestamp));
+
+      await updateSessionEnd(session.id, lastHandTime, endingBankroll, {
+        totalHands: stats.totalHands,
+        totalShoes: shoes.length,
+        handsWon: stats.handsWon,
+        handsLost: stats.handsLost,
+        handsPushed: stats.handsPushed,
+        blackjacks: stats.blackjacks,
+        deviationsTaken: session.deviationsTaken,
+      }).catch(console.error);
+    }
+  }
+}
 
 export function initHistoryRecorder() {
   if (initialized) return;
@@ -182,8 +282,9 @@ export function initHistoryRecorder() {
     }
   });
 
-  // Watch for session start → write SessionRecord
+  // Watch for session start + session end → write/finalize SessionRecord
   useSessionStore.subscribe((state, prevState) => {
+    // Session created
     if (state.currentSessionId && state.currentSessionId !== prevState.currentSessionId) {
       const settings = useSettingsStore.getState();
       const record: SessionRecord = {
@@ -204,6 +305,62 @@ export function initHistoryRecorder() {
       };
       putSession(record).catch(console.error);
     }
+
+    // Session ended (resetSession was called — currentSessionId went from value to null)
+    if (prevState.currentSessionId && !state.currentSessionId) {
+      finalizeSession(prevState.currentSessionId).catch(console.error);
+    }
+  });
+
+  // --- Page lifecycle handlers ---
+
+  let visibilityTimer: ReturnType<typeof setTimeout> | null = null;
+
+  window.addEventListener('visibilitychange', () => {
+    const sessionId = useSessionStore.getState().currentSessionId;
+
+    if (document.visibilityState === 'hidden' && sessionId) {
+      // Delayed finalization — 30s grace period for brief tab switches
+      visibilityTimer = setTimeout(() => {
+        visibilityTimer = null;
+        const currentId = useSessionStore.getState().currentSessionId;
+        if (currentId === sessionId) {
+          finalizeSession(sessionId).catch(console.error);
+        }
+      }, 30_000);
+    } else if (document.visibilityState === 'visible' && visibilityTimer) {
+      // Came back before timeout — cancel finalization
+      clearTimeout(visibilityTimer);
+      visibilityTimer = null;
+    }
+  });
+
+  window.addEventListener('pagehide', () => {
+    const session = useSessionStore.getState();
+    if (!session.currentSessionId) return;
+
+    // Best-effort sync using store stats (synchronous — can't read IDB during pagehide)
+    const shoes = useGameStore.getState().currentShoeId ? 1 : 0; // approximate
+    const payload: Partial<SessionRecord> = {
+      id: session.currentSessionId,
+      endTime: Date.now(),
+      endingBankroll: session.bankroll,
+      netPnL: session.bankroll - session.startingBankroll,
+      totalHands: session.handsPlayed,
+      totalShoes: shoes,
+      handsWon: session.handsWon,
+      handsLost: session.handsLost,
+      handsPushed: session.handsPushed,
+      blackjacks: session.blackjacks,
+      deviationsTaken: session.deviationsTaken,
+    };
+
+    // keepalive fetch survives page close
+    fetch(`/__data/history/sessions`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {});
   });
 }
 

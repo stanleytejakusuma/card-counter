@@ -5,6 +5,8 @@ import { useSettingsStore } from '../stores/settingsStore.js';
 const STORE_NAMES = ['card-counter-game', 'card-counter-session', 'card-counter-settings'] as const;
 const HISTORY_COLLECTIONS = ['sessions', 'shoes', 'hands'] as const;
 
+let _isHydrating = false;
+
 // --- Hydration (called once at startup, before store creation) ---
 
 export async function hydrateFromFiles(): Promise<void> {
@@ -43,16 +45,21 @@ export async function hydrateHistoryFromFiles(): Promise<void> {
     }),
   );
 
-  for (const { col, data } of fetches) {
-    for (const record of data) {
-      try {
-        if (col === 'sessions') await putSession(record as any);
-        else if (col === 'shoes') await putShoe(record as any);
-        else if (col === 'hands') await putHand(record as any);
-      } catch {
-        // skip individual record errors
+  _isHydrating = true;
+  try {
+    for (const { col, data } of fetches) {
+      for (const record of data) {
+        try {
+          if (col === 'sessions') await putSession(record as any);
+          else if (col === 'shoes') await putShoe(record as any);
+          else if (col === 'hands') await putHand(record as any);
+        } catch {
+          // skip individual record errors
+        }
       }
     }
+  } finally {
+    _isHydrating = false;
   }
 }
 
@@ -73,7 +80,7 @@ function debouncedPut(storeName: string) {
         fetch(`/__data/store/${storeName}`, {
           method: 'PUT',
           body: data,
-        }).catch(() => {});
+        }).catch((err) => console.warn(`[fileSync] store sync failed for ${storeName}:`, err));
       }
     }, 500),
   );
@@ -86,14 +93,24 @@ export function initStoreSync(): void {
 }
 
 export function syncRecordToFile(collection: string, record: { id: string }): void {
+  if (_isHydrating) return;
+
   fetch(`/__data/history/${collection}`, {
     method: 'PUT',
     body: JSON.stringify(record),
-  }).catch(() => {});
+  }).catch((err) => {
+    console.warn(`[fileSync] sync failed for ${collection}/${record.id}, retrying...`, err);
+    setTimeout(() => {
+      fetch(`/__data/history/${collection}`, {
+        method: 'PUT',
+        body: JSON.stringify(record),
+      }).catch((err2) => console.warn(`[fileSync] retry failed for ${collection}/${record.id}:`, err2));
+    }, 1000);
+  });
 }
 
 export function deleteSessionFile(sessionId: string): void {
   fetch(`/__data/history/sessions/${sessionId}`, {
     method: 'DELETE',
-  }).catch(() => {});
+  }).catch((err) => console.warn(`[fileSync] delete failed for session ${sessionId}:`, err));
 }

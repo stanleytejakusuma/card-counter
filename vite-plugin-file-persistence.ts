@@ -50,6 +50,19 @@ function json(res: ServerResponse, status: number, data: unknown) {
   res.end(JSON.stringify(data));
 }
 
+// Per-file write queue to serialize concurrent read-modify-write operations
+const writeQueues = new Map<string, Promise<void>>();
+
+function serializedWrite(filePath: string, fn: () => Promise<void>): Promise<void> {
+  const prev = writeQueues.get(filePath) ?? Promise.resolve();
+  const next = prev.then(fn, fn); // run even if previous failed
+  writeQueues.set(filePath, next);
+  next.finally(() => {
+    if (writeQueues.get(filePath) === next) writeQueues.delete(filePath);
+  });
+  return next;
+}
+
 export default function filePersistencePlugin(): Plugin {
   return {
     name: 'file-persistence',
@@ -79,7 +92,9 @@ export default function filePersistencePlugin(): Plugin {
 
           if (method === 'PUT') {
             const body = await readBody(req);
-            writeFileSync(filePath, body, 'utf-8');
+            await serializedWrite(filePath, async () => {
+              writeFileSync(filePath, body, 'utf-8');
+            });
             json(res, 200, { ok: true });
             return;
           }
@@ -99,15 +114,17 @@ export default function filePersistencePlugin(): Plugin {
 
           if (method === 'PUT') {
             const body = await readBody(req);
-            const record = JSON.parse(body) as { id: string };
-            const arr = readJsonArray<{ id: string }>(filePath);
-            const idx = arr.findIndex((r) => r.id === record.id);
-            if (idx >= 0) {
-              arr[idx] = record;
-            } else {
-              arr.push(record);
-            }
-            writeJson(filePath, arr);
+            await serializedWrite(filePath, async () => {
+              const record = JSON.parse(body) as { id: string };
+              const arr = readJsonArray<{ id: string }>(filePath);
+              const idx = arr.findIndex((r) => r.id === record.id);
+              if (idx >= 0) {
+                arr[idx] = record;
+              } else {
+                arr.push(record);
+              }
+              writeJson(filePath, arr);
+            });
             json(res, 200, { ok: true });
             return;
           }
@@ -122,21 +139,24 @@ export default function filePersistencePlugin(): Plugin {
           const shoesPath = join(HISTORY_DIR, 'shoes.json');
           const handsPath = join(HISTORY_DIR, 'hands.json');
 
-          // Remove session
-          const sessions = readJsonArray<{ id: string }>(sessionsPath);
-          writeJson(sessionsPath, sessions.filter((s) => s.id !== sessionId));
+          // Serialize all three writes together under sessions path to avoid interleaving
+          await serializedWrite(sessionsPath, async () => {
+            // Remove session
+            const sessions = readJsonArray<{ id: string }>(sessionsPath);
+            writeJson(sessionsPath, sessions.filter((s) => s.id !== sessionId));
 
-          // Find shoes for this session, collect their IDs, then remove
-          const shoes = readJsonArray<{ id: string; sessionId: string }>(shoesPath);
-          const shoeIds = new Set(shoes.filter((s) => s.sessionId === sessionId).map((s) => s.id));
-          writeJson(shoesPath, shoes.filter((s) => s.sessionId !== sessionId));
+            // Find shoes for this session, collect their IDs, then remove
+            const shoes = readJsonArray<{ id: string; sessionId: string }>(shoesPath);
+            const shoeIds = new Set(shoes.filter((s) => s.sessionId === sessionId).map((s) => s.id));
+            writeJson(shoesPath, shoes.filter((s) => s.sessionId !== sessionId));
 
-          // Remove hands by sessionId or shoeId
-          const hands = readJsonArray<{ id: string; sessionId: string; shoeId: string }>(handsPath);
-          writeJson(
-            handsPath,
-            hands.filter((h) => h.sessionId !== sessionId && !shoeIds.has(h.shoeId)),
-          );
+            // Remove hands by sessionId or shoeId
+            const hands = readJsonArray<{ id: string; sessionId: string; shoeId: string }>(handsPath);
+            writeJson(
+              handsPath,
+              hands.filter((h) => h.sessionId !== sessionId && !shoeIds.has(h.shoeId)),
+            );
+          });
 
           json(res, 200, { ok: true });
           return;
