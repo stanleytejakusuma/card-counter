@@ -3,12 +3,12 @@ import { useGameStore } from '../../stores/gameStore.js';
 import { useSessionStore } from '../../stores/sessionStore.js';
 import { useSettingsStore } from '../../stores/settingsStore.js';
 import { calculateTrueCount } from '../../engine/counting.js';
-import { calculateSpreadBet } from '../../engine/kelly.js';
+import { calculateSpreadBet, calculateRecommendedHands } from '../../engine/kelly.js';
 import { formatCurrency } from '../../utils/formatters.js';
 
 export function BetDisplay() {
   const { runningCount, cardsSeen, seats, playerSeatNumbers } = useGameStore();
-  const { minBet, maxBet, unitSize } = useSessionStore();
+  const { minBet, maxBet, unitSize, bankroll } = useSessionStore();
   const decks = useSettingsStore((s) => s.rules.decks);
   const [editing, setEditing] = useState(false);
   const [editUnit, setEditUnit] = useState('');
@@ -20,6 +20,7 @@ export function BetDisplay() {
 
   const tc = calculateTrueCount(runningCount, cardsSeen, decks);
   const bet = calculateSpreadBet({ trueCount: tc, minBet, maxBet, unitSize });
+  const handsRec = calculateRecommendedHands({ trueCount: tc, minBet, maxBet, unitSize, bankroll });
 
   useEffect(() => {
     if (editing && unitRef.current) {
@@ -169,6 +170,21 @@ export function BetDisplay() {
           Edge: {(bet.edge * 100).toFixed(2)}%
         </div>
       )}
+      <div className={`text-sm font-bold mt-2 ${handsRec.hands > 1 ? 'text-green-300' : 'text-neutral-500'}`}>
+        {handsRec.hands > 1 ? (
+          <>
+            PLAY {handsRec.hands} HANDS
+            <span className="text-xs font-normal ml-1.5 text-neutral-400">
+              {formatCurrency(handsRec.perHandBet)}/hand = {formatCurrency(handsRec.totalExposure)}
+            </span>
+          </>
+        ) : (
+          <>PLAY 1 HAND</>
+        )}
+      </div>
+      <div className="text-[10px] text-neutral-600 mt-0.5">
+        {handsRec.reason}
+      </div>
     </div>
   );
 }

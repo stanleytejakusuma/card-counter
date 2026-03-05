@@ -122,6 +122,99 @@ export function calculateSpreadBet(params: SpreadParams): BetRecommendation {
   };
 }
 
+export interface HandsRecommendation {
+  /** Number of hands/boxes to play this round */
+  hands: number;
+  /** Per-hand bet amount (adjusted for correlation) */
+  perHandBet: number;
+  /** Total exposure across all hands */
+  totalExposure: number;
+  /** Reason for the recommendation */
+  reason: string;
+}
+
+export interface HandsParams extends SpreadParams {
+  /** Current bankroll — used to gate multi-hand behind minimum unit threshold */
+  bankroll: number;
+}
+
+/**
+ * Recommended number of simultaneous hands based on true count and bankroll.
+ *
+ * At negative/neutral counts: minimize exposure (1 hand, min bet).
+ * At positive counts: spread to more hands with Kelly-adjusted per-hand bets.
+ * Multi-hand requires 100+ units (bankroll/minBet) — below that, stay single hand.
+ * 3-hand requires 200+ units.
+ * Multi-hand correlation factor: hands share the dealer's hand, so optimal
+ * per-hand bet is reduced (70% for 2 hands, 50% for 3 hands).
+ */
+export function calculateRecommendedHands(params: HandsParams): HandsRecommendation {
+  const { trueCount, minBet, maxBet, unitSize, bankroll } = params;
+  const unitsAvailable = bankroll / minBet;
+
+  // No edge or negative — 1 hand, minimum bet
+  if (trueCount < 2) {
+    return {
+      hands: 1,
+      perHandBet: minBet,
+      totalExposure: minBet,
+      reason: trueCount <= 0 ? 'Negative count — minimize exposure' : 'Neutral count — single hand',
+    };
+  }
+
+  // Bankroll gates: need 100 units for 2 hands, 200 units for 3 hands
+  const canPlayTwo = unitsAvailable >= 100;
+  const canPlayThree = unitsAvailable >= 200;
+
+  if (!canPlayTwo) {
+    // Bankroll too thin for multi-hand — single hand with spread bet
+    const singleBet = Math.max(minBet, Math.min(maxBet, Math.floor(trueCount) * unitSize));
+    return {
+      hands: 1,
+      perHandBet: singleBet,
+      totalExposure: singleBet,
+      reason: `+EV but bankroll thin (${Math.floor(unitsAvailable)}u) — single hand`,
+    };
+  }
+
+  let hands: number;
+  let correlationFactor: number;
+
+  if (trueCount < 3) {
+    hands = 2;
+    correlationFactor = 0.7;
+  } else if (trueCount < 5) {
+    hands = 2;
+    correlationFactor = 0.7;
+  } else {
+    hands = canPlayThree ? 3 : 2;
+    correlationFactor = canPlayThree ? 0.5 : 0.7;
+  }
+
+  // Base single-hand bet from spread
+  const singleBet = Math.max(minBet, Math.min(maxBet, Math.floor(trueCount) * unitSize));
+
+  // Adjust per-hand bet for multi-hand correlation
+  let perHandBet = Math.round(singleBet * correlationFactor / unitSize) * unitSize;
+  perHandBet = Math.max(minBet, Math.min(maxBet, perHandBet));
+
+  const totalExposure = perHandBet * hands;
+
+  const reasons: Record<number, string> = {
+    2: 'Edge emerging — spread to 2 hands',
+    3: 'Solid edge — 2 hands, 70% per-hand',
+    4: 'Strong edge — 2 hands, max exposure',
+    5: `Very strong — ${hands} hands, ${hands === 3 ? '50%' : '70%'} per-hand`,
+  };
+
+  return {
+    hands,
+    perHandBet,
+    totalExposure,
+    reason: reasons[Math.min(Math.floor(trueCount), 5)] ?? `TC +${Math.floor(trueCount)} — ${hands} hands, max exposure`,
+  };
+}
+
 export const DEFAULT_KELLY_PARAMS: Omit<KellyParams, 'trueCount'> = {
   bankroll: 400,
   minBet: 1,
