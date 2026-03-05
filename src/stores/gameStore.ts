@@ -137,19 +137,31 @@ interface GameState {
 
 /** Recompute _dealOrderIndex from the remaining cardContextHistory after undo.
  *  New deal order: S..S, D, S..S  (players first round, dealer, players second round)
- *  Index = total deal entries (S and D) from the current round start. */
+ *  Index = total deal entries (S and D) from the current round start.
+ *  Scoped to the current round: only considers entries after the last 'T' (table-phase)
+ *  target, which marks the boundary between the previous round and the current one. */
 function recomputeDealOrderIndex(ctx: CardContext[]): number {
-  // Find the dealer entry (marks the boundary between first and second player rounds)
-  let dIdx = -1;
+  // Scope to current round: entries after the last table-phase ('T') target
+  let roundStart = 0;
   for (let i = ctx.length - 1; i >= 0; i--) {
-    if (ctx[i].target === 'D') { dIdx = i; break; }
+    if (ctx[i].target === 'T') {
+      roundStart = i + 1;
+      break;
+    }
+  }
+  const round = ctx.slice(roundStart);
+
+  // Find the dealer entry within the current round only
+  let dIdx = -1;
+  for (let i = round.length - 1; i >= 0; i--) {
+    if (round[i].target === 'D') { dIdx = i; break; }
   }
 
   if (dIdx < 0) {
     // No dealer card yet — count trailing S entries (first round in progress)
     let count = 0;
-    for (let i = ctx.length - 1; i >= 0; i--) {
-      if (ctx[i].target.startsWith('S')) count++;
+    for (let i = round.length - 1; i >= 0; i--) {
+      if (round[i].target.startsWith('S')) count++;
       else break;
     }
     return count;
@@ -158,12 +170,12 @@ function recomputeDealOrderIndex(ctx: CardContext[]): number {
   // D found: count consecutive S before D + 1 (D itself) + consecutive S after D
   let sBefore = 0;
   for (let i = dIdx - 1; i >= 0; i--) {
-    if (ctx[i].target.startsWith('S')) sBefore++;
+    if (round[i].target.startsWith('S')) sBefore++;
     else break;
   }
   let sAfter = 0;
-  for (let i = dIdx + 1; i < ctx.length; i++) {
-    if (ctx[i].target.startsWith('S')) sAfter++;
+  for (let i = dIdx + 1; i < round.length; i++) {
+    if (round[i].target.startsWith('S')) sAfter++;
     else break;
   }
   return sBefore + 1 + sAfter;

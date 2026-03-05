@@ -375,7 +375,25 @@ export default function filePersistencePlugin(): Plugin {
 
             const row = toRow(incoming, table.fieldMap);
             const cols = Object.values(table.fieldMap);
-            table.upsert.run(...cols.map(c => row[c]));
+            try {
+              table.upsert.run(...cols.map(c => row[c]));
+            } catch (e: unknown) {
+              const sqlErr = e as { code?: string };
+              if (sqlErr.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+                // Parent row (session/shoe) may not exist yet — create placeholder and retry
+                if (collection === 'shoes' || collection === 'hands') {
+                  const sid = row.session_id;
+                  if (sid) db.prepare('INSERT OR IGNORE INTO sessions (id) VALUES (?)').run(sid);
+                }
+                if (collection === 'hands') {
+                  const shoeId = row.shoe_id;
+                  if (shoeId) db.prepare('INSERT OR IGNORE INTO shoes (id, session_id) VALUES (?, ?)').run(shoeId, row.session_id);
+                }
+                table.upsert.run(...cols.map(c => row[c]));
+              } else {
+                throw e;
+              }
+            }
             json(res, 200, { ok: true });
             return;
           }
