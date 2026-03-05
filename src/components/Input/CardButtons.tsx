@@ -56,6 +56,7 @@ export function CardButtons() {
 
   const isOccupiedSeatActive = _activePlaySeat > 0 && occupiedSeatNumbers.includes(_activePlaySeat);
   const occupiedSplitSeats = useGameStore((s) => s._occupiedSplitSeats);
+  const _observeRound = useGameStore((s) => s._observeRound);
 
   // Check for split/double eligibility
   const canSplit = !isOccupiedSeatActive && handPhase === 'player' && activeHand && activeHand.cards.length === 2 &&
@@ -106,11 +107,14 @@ export function CardButtons() {
 
   function handleNewShoe() {
     useGameStore.getState().newShoe();
+    useSessionStore.getState().incrementShoes();
   }
 
   function handleNext() {
     const game = useGameStore.getState();
-    const playOrder = [...game.playerSeatNumbers, ...game.occupiedSeatNumbers].sort((a, b) => a - b);
+    const playOrder = game._observeRound
+      ? [...game.occupiedSeatNumbers].sort((a, b) => a - b)
+      : [...game.playerSeatNumbers, ...game.occupiedSeatNumbers].sort((a, b) => a - b);
     const currentSeat = game._activePlaySeat;
 
     // If occupied seat is split, advance sub-hand before advancing seat
@@ -195,9 +199,14 @@ export function CardButtons() {
   return (
     <div className="space-y-2">
       {/* Phase indicator for table mode */}
-      {handPhase === 'table' && (
+      {handPhase === 'table' && !_observeRound && (
         <div className="text-center text-xs text-red-400 font-semibold">
           Dealer — enter dealer cards
+        </div>
+      )}
+      {_observeRound && (
+        <div className="text-center text-xs text-amber-400 font-semibold">
+          Observe Round — tracking cards only
         </div>
       )}
 
@@ -327,17 +336,25 @@ export function CardButtons() {
             </button>
           </>
         ) : (
-          /* Idle / deal mode: Undo (x2) + New Shoe (x2) */
+          /* Idle / deal mode: Observe + Undo + New Shoe */
           <>
+            {occupiedSeatNumbers.length > 0 && (
+              <button
+                onClick={() => useGameStore.getState().startObserveRound()}
+                className="bg-amber-900/40 border border-amber-700 rounded-lg py-2.5 text-xs font-bold text-amber-300 uppercase hover:bg-amber-800/40 active:scale-95 transition-all"
+              >
+                Observe
+              </button>
+            )}
             <button
               onClick={handleUndo}
-              className="col-span-2 bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
+              className={`${occupiedSeatNumbers.length > 0 ? '' : 'col-span-2 '}bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all`}
             >
               Undo
             </button>
             <button
               onClick={handleNewShoe}
-              className="col-span-2 bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
+              className={`${occupiedSeatNumbers.length > 0 ? '' : 'col-span-2 '}bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all`}
             >
               New Shoe
             </button>

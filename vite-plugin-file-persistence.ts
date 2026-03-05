@@ -205,6 +205,9 @@ function migrateJsonToSqlite(db: Database.Database) {
 
   console.log('[file-persistence] Migrating JSON data to SQLite...');
 
+  // Temporarily disable FK checks — JSON data may have orphaned shoes/hands
+  db.pragma('foreign_keys = OFF');
+
   const migrate = db.transaction(() => {
     // Migrate stores
     if (existsSync(STORES_DIR)) {
@@ -261,6 +264,9 @@ function migrateJsonToSqlite(db: Database.Database) {
   });
 
   migrate();
+
+  // Re-enable FK checks
+  db.pragma('foreign_keys = ON');
 
   // Rename old directories
   if (existsSync(STORES_DIR)) {

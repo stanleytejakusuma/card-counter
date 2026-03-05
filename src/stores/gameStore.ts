@@ -15,6 +15,14 @@ function createEmptyHand(fromSplit = false): PlayerHand {
   return { cards: [], doubled: false, fromSplit };
 }
 
+/** Returns the full play/deal order. In observe mode, only occupied seats (no player seats). */
+function getPlayOrder(state: { playerSeatNumbers: number[]; occupiedSeatNumbers: number[]; _observeRound?: boolean }): number[] {
+  if (state._observeRound) {
+    return [...state.occupiedSeatNumbers].sort((a, b) => a - b);
+  }
+  return [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
+}
+
 function createEmptySeats(seatNumbers: number[]): PlayerSeat[] {
   return seatNumbers.map((n) => ({
     seatNumber: n,
@@ -87,6 +95,7 @@ interface GameState {
   _splitDealInProgress: boolean;  // true while dealing second cards to split hands
   _occupiedSplitSeats: number[];  // occupied seats that split this round
   _occupiedActiveSubHand: number;  // 0 or 1 — which sub-hand receives cards
+  _observeRound: boolean;  // observe mode — track cards only, no player hands
 
   currentShoeId: string | null;
   shoeHandCount: number;
@@ -117,6 +126,7 @@ interface GameState {
   setActiveSeat: (index: number) => void;
   nextHandOrSeat: () => void;
   updateRoundOutcome: (roundIndex: number, seatIndex: number, handIndex: number, outcome: HandOutcome, netResult: number) => void;
+  startObserveRound: () => void;
 
   // Legacy compat — point to seat equivalents
   readonly numBoxes: number;
@@ -181,6 +191,7 @@ export const useGameStore = create<GameState>()(
       _splitDealInProgress: false,
       _occupiedSplitSeats: [],
       _occupiedActiveSubHand: 0,
+      _observeRound: false,
 
       currentShoeId: null,
       shoeHandCount: 0,
@@ -238,7 +249,7 @@ export const useGameStore = create<GameState>()(
           }
         } else if (state.handPhase === 'idle') {
           // First card of the round goes to the first seat (not dealer)
-          const dealOrder = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
+          const dealOrder = getPlayOrder(state);
           const targetSeatNum = dealOrder[0];
 
           updates.handPhase = 'player';
@@ -260,7 +271,7 @@ export const useGameStore = create<GameState>()(
             contextTarget = `S${targetSeatNum}`;
           }
         } else if (state.handPhase === 'player') {
-          const dealOrder = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
+          const dealOrder = getPlayOrder(state);
           const N = dealOrder.length;
           const inDealMode = N > 0 && state._dealOrderIndex > 0 && state._dealOrderIndex < N * 2 + 1;
 
@@ -411,7 +422,7 @@ export const useGameStore = create<GameState>()(
                 updates._occupiedActiveSubHand = 1;
               } else {
                 // Advance to next seat or table
-                const playOrder = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
+                const playOrder = getPlayOrder(state);
                 const currentIdx = playOrder.indexOf(state._activePlaySeat);
                 if (currentIdx >= 0 && currentIdx < playOrder.length - 1) {
                   const nextSeatNum = playOrder[currentIdx + 1];
@@ -486,7 +497,7 @@ export const useGameStore = create<GameState>()(
                     }
                     if (allAces && state._activePlaySeat > 0) {
                       // All hands are split aces — advance to next seat or table
-                      const playOrder = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
+                      const playOrder = getPlayOrder(state);
                       const currentIdx = playOrder.indexOf(state._activePlaySeat);
                       if (currentIdx >= 0 && currentIdx < playOrder.length - 1) {
                         const nextSeatNum = playOrder[currentIdx + 1];
@@ -532,7 +543,7 @@ export const useGameStore = create<GameState>()(
                 );
               } else if (state._activePlaySeat > 0) {
                 // Advance through full play order (player + occupied seats)
-                const playOrder = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
+                const playOrder = getPlayOrder(state);
                 const currentIdx = playOrder.indexOf(state._activePlaySeat);
                 if (currentIdx >= 0 && currentIdx < playOrder.length - 1) {
                   const nextSeatNum = playOrder[currentIdx + 1];
@@ -649,7 +660,7 @@ export const useGameStore = create<GameState>()(
         // Undo navigation ("stand"): if in play mode and the last card in history
         // wasn't entered for the current seat's play turn, revert to previous seat
         if (state.handPhase === 'player' && state._activePlaySeat > 0) {
-          const playOrder = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].sort((a, b) => a - b);
+          const playOrder = getPlayOrder(state);
           // Only N deal entries come after D in S..D..S order
           const dealCardCount = playOrder.length;
           const ctxH = state.cardContextHistory;
@@ -752,10 +763,31 @@ export const useGameStore = create<GameState>()(
           cardContextHistory: state.cardContextHistory.slice(0, -1),
         };
 
-        if (state.handPhase === 'table' && state.tableCards.length > 0) {
-          updates.tableCards = state.tableCards.slice(0, -1);
+        if (state.handPhase === 'table') {
           if (state._dealerHits.length > 0) {
+            // Remove last dealer hit card
+            updates.tableCards = state.tableCards.slice(0, -1);
             updates._dealerHits = state._dealerHits.slice(0, -1);
+          } else {
+            // No dealer hits — regress to player phase (pure navigation undo)
+            const playOrder = getPlayOrder(state);
+            const lastSeat = playOrder.length > 0 ? playOrder[playOrder.length - 1] : 0;
+            // Restore _occupiedSplitSeats from context history
+            const splitSeats: number[] = [];
+            for (const sn of state.occupiedSeatNumbers) {
+              if (state.cardContextHistory.some((e) => e.target.startsWith(`S${sn}.`))) {
+                splitSeats.push(sn);
+              }
+            }
+            set({
+              handPhase: 'player',
+              _activePlaySeat: lastSeat,
+              _occupiedSplitSeats: splitSeats,
+              ...(state.seats.findIndex((s) => s.seatNumber === lastSeat) >= 0
+                ? { activeSeatIndex: state.seats.findIndex((s) => s.seatNumber === lastSeat) }
+                : {}),
+            });
+            return;
           }
         } else if (state.handPhase === 'player') {
           // Use cardContextHistory to determine where the last card went
@@ -808,7 +840,7 @@ export const useGameStore = create<GameState>()(
                       // Recompute deal order index + _activePlaySeat for early return
                       const earlyCtx = updates.cardContextHistory ?? state.cardContextHistory.slice(0, -1);
                       updates._dealOrderIndex = recomputeDealOrderIndex(earlyCtx);
-                      const dealOrderLen = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].length;
+                      const dealOrderLen = getPlayOrder(state).length;
                       if (updates._dealOrderIndex < dealOrderLen * 2 + 1) {
                         updates._activePlaySeat = 0;
                       } else if (targetSeatNum > 0) {
@@ -857,7 +889,7 @@ export const useGameStore = create<GameState>()(
           updates._dealOrderIndex = recomputeDealOrderIndex(remainingCtx);
 
           // Fix _activePlaySeat: back to deal mode or restore to undone seat
-          const dealOrderLen = [...state.playerSeatNumbers, ...state.occupiedSeatNumbers].length;
+          const dealOrderLen = getPlayOrder(state).length;
           if (updates._dealOrderIndex < dealOrderLen * 2 + 1) {
             updates._activePlaySeat = 0;  // back in deal mode
           } else if (targetSeatNum > 0) {
@@ -1015,6 +1047,7 @@ export const useGameStore = create<GameState>()(
         _splitDealInProgress: false,
         _occupiedSplitSeats: [],
         _occupiedActiveSubHand: 0,
+        _observeRound: false,
       })),
 
       setHandPhase: (phase: HandPhase) => {
@@ -1034,6 +1067,12 @@ export const useGameStore = create<GameState>()(
       },
 
       toggleWong: () => set((state) => ({ isWongedOut: !state.isWongedOut })),
+
+      startObserveRound: () => {
+        const state = get();
+        if (state.handPhase !== 'idle' || state.occupiedSeatNumbers.length === 0) return;
+        set({ _observeRound: true });
+      },
 
       newShoe: () =>
         set((state) => ({
@@ -1062,6 +1101,7 @@ export const useGameStore = create<GameState>()(
           _splitDealInProgress: false,
           _occupiedSplitSeats: [],
           _occupiedActiveSubHand: 0,
+          _observeRound: false,
         })),
 
       updateTrueCountExtremes: (tc: number) => {

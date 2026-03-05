@@ -38,13 +38,16 @@ export function CardFeedback() {
   const _dealOrderIndex = useGameStore((s) => s._dealOrderIndex);
   const occupiedSeatNumbers = useGameStore((s) => s.occupiedSeatNumbers);
   const _activePlaySeat = useGameStore((s) => s._activePlaySeat);
+  const _observeRound = useGameStore((s) => s._observeRound);
   const lastCard = cardHistory.length > 0 ? cardHistory[cardHistory.length - 1] : null;
 
   const multiSeat = playerSeatNumbers.length > 1;
   const activeSeat = seats[activeSeatIndex];
 
   // Determine effective phase label
-  const dealOrder = [...playerSeatNumbers, ...occupiedSeatNumbers].sort((a, b) => a - b);
+  const dealOrder = _observeRound
+    ? [...occupiedSeatNumbers].sort((a, b) => a - b)
+    : [...playerSeatNumbers, ...occupiedSeatNumbers].sort((a, b) => a - b);
   const totalDealCards = dealOrder.length * 2 + 1;
   const inDealMode = handPhase === 'player' && dealOrder.length > 0 && _dealOrderIndex > 0 && _dealOrderIndex < totalDealCards;
   const effectivePhase = inDealMode ? 'deal' : handPhase;

@@ -25,6 +25,7 @@ interface SessionState {
   unitSize: number;
   kellyFraction: number;
   handsPlayed: number;
+  shoesPlayed: number;
   sessionStartTime: number | null;
 
   currentSessionId: string | null;
@@ -43,6 +44,7 @@ interface SessionState {
   setUnitSize: (size: number) => void;
   setKellyFraction: (fraction: number) => void;
   incrementHands: () => void;
+  incrementShoes: () => void;
   startSession: () => void;
   resetSession: () => void;
   setAwaitingOutcomes: (outcomes: PendingOutcome[]) => void;
@@ -63,6 +65,7 @@ export const useSessionStore = create<SessionState>()(
       unitSize: 1,
       kellyFraction: 0.25,
       handsPlayed: 0,
+      shoesPlayed: 0,
       sessionStartTime: null,
 
       currentSessionId: null,
@@ -86,6 +89,7 @@ export const useSessionStore = create<SessionState>()(
       setUnitSize: (size) => set({ unitSize: size }),
       setKellyFraction: (fraction) => set({ kellyFraction: fraction }),
       incrementHands: () => set((state) => ({ handsPlayed: state.handsPlayed + 1 })),
+      incrementShoes: () => set((state) => ({ shoesPlayed: state.shoesPlayed + 1 })),
       startSession: () =>
         set((state) => ({
           sessionStartTime: state.sessionStartTime ?? Date.now(),
@@ -94,6 +98,7 @@ export const useSessionStore = create<SessionState>()(
       resetSession: () =>
         set((state) => ({
           handsPlayed: 0,
+          shoesPlayed: 0,
           sessionStartTime: null,
           bankroll: state.startingBankroll,
           currentSessionId: null,
@@ -191,6 +196,7 @@ export const useSessionStore = create<SessionState>()(
         unitSize: state.unitSize,
         kellyFraction: state.kellyFraction,
         handsPlayed: state.handsPlayed,
+        shoesPlayed: state.shoesPlayed,
         sessionStartTime: state.sessionStartTime,
         currentSessionId: state.currentSessionId,
         handsWon: state.handsWon,

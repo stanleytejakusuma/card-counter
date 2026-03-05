@@ -4,7 +4,7 @@ import { useGameStore } from '../../stores/gameStore.js';
 import { formatCurrency, formatElapsedTime } from '../../utils/formatters.js';
 
 export function SessionBar() {
-  const { bankroll, startingBankroll, handsPlayed, sessionStartTime } = useSessionStore();
+  const { bankroll, startingBankroll, handsPlayed, shoesPlayed, sessionStartTime } = useSessionStore();
   const isWongedOut = useGameStore((s) => s.isWongedOut);
   const [, setTick] = useState(0);
   const [editing, setEditing] = useState(false);
@@ -69,6 +69,9 @@ export function SessionBar() {
       </div>
       <div className="text-neutral-500">
         Hands: <span className="font-mono text-neutral-300">{handsPlayed}</span>
+        {shoesPlayed > 0 && (
+          <span className="ml-2">Shoes: <span className="font-mono text-neutral-300">{shoesPlayed}</span></span>
+        )}
       </div>
       <div className="text-neutral-500">
         {sessionStartTime ? formatElapsedTime(sessionStartTime) : '0m'}
