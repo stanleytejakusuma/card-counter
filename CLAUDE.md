@@ -117,3 +117,4 @@ src/
 - `card-counter-occupied-seats`: Scoreboard seats have 3 states (blue=yours, amber=other player, gray=empty). Right-click toggles occupied. gameStore.occupiedSeatNumbers[].
 - `card-counter-touch-first-ui`: Keyboard shortcuts removed (useKeyboard gutted). All input via touch/mouse. Draw history strip in CardFeedback with colored chips. Scoreboard dealer in current round section with full hand + total.
 - `card-counter-shoes-played-counter`: shoesPlayed in sessionStore, incremented on NEW SHOE press. Shown in SessionBar next to hands count (hidden until first shoe). Reset on resetSession().
+- `card-counter-dashboard-analytics`: SessionStats (center column, always visible) shows P&L/winrate/$/hr/hands-hr/hands-shoe. TCBracketStats + ShoeQuality in Analytics panel. tcBrackets + shoePeakTCs in sessionStore (persist v5). trueCount on PendingOutcome. ShoeProgress has % label + amber 75% shuffle zone.
