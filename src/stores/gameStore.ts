@@ -1238,8 +1238,7 @@ export const useGameStore = create<GameState>()(
 
         let newNumbers: number[];
         if (state.playerSeatNumbers.includes(seatNumber)) {
-          // Remove — but don't allow removing last seat
-          if (state.playerSeatNumbers.length <= 1) return;
+          // Remove seat (can remove all — enables observe mode)
           newNumbers = state.playerSeatNumbers.filter((n) => n !== seatNumber);
         } else {
           // Add — max 4
