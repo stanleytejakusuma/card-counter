@@ -293,6 +293,7 @@ export function initHistoryRecorder() {
           cardsDealt: 0,
           peakTrueCount: 0,
           minTrueCount: 0,
+          tableName: state.tableName || undefined,
         };
         putShoe(shoe).catch(console.error);
       }
