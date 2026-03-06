@@ -16,7 +16,7 @@ function cardStr(card: Card): string {
 }
 
 export function Scoreboard() {
-  const { seats, playerSeatNumbers, occupiedSeatNumbers, dealerUpcard, handPhase, lastConfirmedRound, shoeRoundHistory, cardContextHistory, _activePlaySeat, _dealerHits, _occupiedSplitSeats, _occupiedActiveSubHand } = useGameStore();
+  const { seats, playerSeatNumbers, occupiedSeatNumbers, dealerUpcard, handPhase, lastConfirmedRound, shoeRoundHistory, cardContextHistory, _activePlaySeat, _dealerHits, _occupiedSplitSeats, _occupiedActiveSubHand, tableName } = useGameStore();
 
   const showDealer = dealerUpcard ?? lastConfirmedRound?.dealerUpcard ?? null;
 
@@ -58,9 +58,18 @@ export function Scoreboard() {
 
   return (
     <div className="border border-neutral-800 rounded-lg p-3 space-y-3">
-      {/* Table header */}
-      <div className="text-center text-xs text-neutral-500 font-semibold uppercase tracking-wider">
-        Table
+      {/* Table header + name input */}
+      <div className="space-y-1.5">
+        <div className="text-center text-xs text-neutral-500 font-semibold uppercase tracking-wider">
+          Table
+        </div>
+        <input
+          type="text"
+          value={tableName}
+          onChange={(e) => useGameStore.getState().setTableName(e.target.value)}
+          placeholder="Table name..."
+          className="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 placeholder-neutral-600 focus:border-neutral-500 focus:outline-none text-center"
+        />
       </div>
 
       {/* 7 seat badges */}
