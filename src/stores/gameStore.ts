@@ -67,6 +67,10 @@ export interface RoundSnapshot {
   tableCards: Card[];
   runningCount: number;
   trueCount: number;
+  /** RC before any cards this round (for bet calculation) */
+  preRoundRC: number;
+  /** Cards seen before any cards this round (for bet calculation) */
+  preRoundCardsSeen: number;
   timestamp: number;
 }
 
@@ -97,6 +101,8 @@ interface GameState {
   _occupiedSplitSeats: number[];  // occupied seats that split this round
   _occupiedActiveSubHand: number;  // 0 or 1 — which sub-hand receives cards
   _observeRound: boolean;  // observe mode — track cards only, no player hands
+  _roundStartRC: number;  // running count at start of round (before any round cards)
+  _roundStartCardsSeen: number;  // cards seen at start of round
 
   currentShoeId: string | null;
   shoeHandCount: number;
@@ -207,6 +213,8 @@ export const useGameStore = create<GameState>()(
       _occupiedSplitSeats: [],
       _occupiedActiveSubHand: 0,
       _observeRound: false,
+      _roundStartRC: 0,
+      _roundStartCardsSeen: 0,
 
       currentShoeId: null,
       shoeHandCount: 0,
@@ -274,6 +282,9 @@ export const useGameStore = create<GameState>()(
           updates.handPhase = 'player';
           updates._dealOrderIndex = 1;
           updates.activeSeatIndex = 0;
+          // Capture pre-round TC state (before any cards for this round)
+          updates._roundStartRC = state.runningCount;
+          updates._roundStartCardsSeen = state.cardsSeen;
 
           const playerSeatIdx = state.seats.findIndex((s) => s.seatNumber === targetSeatNum);
           if (playerSeatIdx >= 0) {
@@ -1018,6 +1029,8 @@ export const useGameStore = create<GameState>()(
             tableCards: state.tableCards,
             runningCount: state.runningCount,
             trueCount: 0, // Will be calculated by consumer
+            preRoundRC: state._roundStartRC,
+            preRoundCardsSeen: state._roundStartCardsSeen,
             timestamp: Date.now(),
           };
           newHistory = [...state.shoeRoundHistory, snapshot];
@@ -1122,6 +1135,8 @@ export const useGameStore = create<GameState>()(
           _occupiedSplitSeats: [],
           _occupiedActiveSubHand: 0,
           _observeRound: false,
+          _roundStartRC: 0,
+          _roundStartCardsSeen: 0,
         })),
 
       updateTrueCountExtremes: (tc: number) => {

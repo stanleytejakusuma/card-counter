@@ -141,16 +141,19 @@ export function initHistoryRecorder() {
 
       state.updateTrueCountExtremes(tc);
 
+      // Use pre-round TC for bet calculation (TC before any cards this round were dealt)
+      const snapshotHistory = state.shoeRoundHistory;
+      const lastSnapshot = snapshotHistory.length > 0 ? snapshotHistory[snapshotHistory.length - 1] : null;
+      const preRoundRC = lastSnapshot?.preRoundRC ?? state.runningCount;
+      const preRoundCardsSeen = lastSnapshot?.preRoundCardsSeen ?? state.cardsSeen;
+      const betTC = calculateTrueCount(preRoundRC, preRoundCardsSeen, decks);
+
       const spreadBet = calculateSpreadBet({
-        trueCount: tc,
+        trueCount: betTC,
         minBet: session.minBet,
         maxBet: session.maxBet,
         unitSize: session.unitSize,
       });
-
-      // Get snapshot outcomes (computed in confirmHand)
-      const snapshotHistory = state.shoeRoundHistory;
-      const lastSnapshot = snapshotHistory.length > 0 ? snapshotHistory[snapshotHistory.length - 1] : null;
 
       const pendingOutcomes: { handId: string; betAmount: number; seatIndex: number; seatNumber: number; handIndex: number; label: string }[] = [];
       let hasDeviation = false;
