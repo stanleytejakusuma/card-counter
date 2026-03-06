@@ -14,7 +14,11 @@ function handSummary(playerCards: Card[], dealerUpcard: Card, handTotal: number)
 
 export function ShoeDetailView() {
   const hands = useHistoryViewStore((s) => s.hands);
+  const shoes = useHistoryViewStore((s) => s.shoes);
+  const view = useHistoryViewStore((s) => s.view);
   const selectedIndex = useHistoryViewStore((s) => s.selectedIndex);
+
+  const shoe = view.type === 'shoe-detail' ? shoes.find((s) => s.id === view.shoeId) : null;
 
   if (hands.length === 0) {
     return <div className="text-neutral-500 text-sm">No hands recorded in this shoe</div>;
@@ -22,6 +26,11 @@ export function ShoeDetailView() {
 
   return (
     <div className="space-y-1">
+      {shoe?.tableName && (
+        <div className="text-xs text-neutral-400 px-2 pb-1">
+          <span className="text-neutral-600">Table: </span>{shoe.tableName}
+        </div>
+      )}
       <div className="grid grid-cols-[2rem_1fr_3rem_3rem_3rem_3.5rem] gap-1 text-xs text-neutral-500 px-2 pb-1 border-b border-neutral-800">
         <span>#</span>
         <span>Hand</span>

@@ -100,7 +100,10 @@ export function SessionDetailView() {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-neutral-300">Shoe #{i + 1}</span>
+                    <span className="text-neutral-300">
+                      Shoe #{i + 1}
+                      {shoe.tableName && <span className="text-neutral-500 ml-1">@ {shoe.tableName}</span>}
+                    </span>
                     <span className="text-neutral-500 text-xs">
                       {shoe.totalHands} hands | {shoe.cardsDealt} cards
                     </span>
