@@ -24,6 +24,7 @@ const SHOE_FIELDS: Record<string, string> = {
   endTime: 'end_time', totalHands: 'total_hands', cardsDealt: 'cards_dealt',
   peakTrueCount: 'peak_true_count', minTrueCount: 'min_true_count',
   cardDistribution: 'card_distribution',
+  tableName: 'table_name',
 };
 
 const HAND_FIELDS: Record<string, string> = {
@@ -169,6 +170,7 @@ function initDb(): Database.Database {
   const migrations = [
     'ALTER TABLE hands ADD COLUMN dealer_cards TEXT',
     'ALTER TABLE shoes ADD COLUMN card_distribution TEXT',
+    'ALTER TABLE shoes ADD COLUMN table_name TEXT',
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }
