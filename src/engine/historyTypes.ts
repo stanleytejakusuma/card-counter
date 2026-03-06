@@ -37,6 +37,7 @@ export interface ShoeRecord {
   peakTrueCount: number;
   minTrueCount: number;
   cardDistribution?: Record<string, number>;
+  tableName?: string;
 }
 
 export interface SessionRecord {

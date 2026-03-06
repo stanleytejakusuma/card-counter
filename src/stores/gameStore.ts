@@ -100,6 +100,7 @@ interface GameState {
 
   currentShoeId: string | null;
   shoeHandCount: number;
+  tableName: string;
   lastConfirmedRound: LastConfirmedRound | null;
   tableCards: Card[];
   peakTrueCount: number;
@@ -113,6 +114,7 @@ interface GameState {
   confirmHand: () => void;
   setHandPhase: (phase: HandPhase) => void;
   toggleWong: () => void;
+  setTableName: (name: string) => void;
   newShoe: () => void;
   nextHand: () => void;
   updateTrueCountExtremes: (tc: number) => void;
@@ -208,6 +210,7 @@ export const useGameStore = create<GameState>()(
 
       currentShoeId: null,
       shoeHandCount: 0,
+      tableName: '',
       lastConfirmedRound: null,
       tableCards: [],
       peakTrueCount: 0,
@@ -1129,6 +1132,8 @@ export const useGameStore = create<GameState>()(
         if (Object.keys(updates).length > 0) set(updates);
       },
 
+      setTableName: (name: string) => set({ tableName: name }),
+
       splitHand: () => {
         const state = get();
         if (state.handPhase !== 'player') return;
@@ -1395,6 +1400,7 @@ export const useGameStore = create<GameState>()(
         isWongedOut: state.isWongedOut,
         currentShoeId: state.currentShoeId,
         shoeHandCount: state.shoeHandCount,
+        tableName: state.tableName,
         peakTrueCount: state.peakTrueCount,
         minTrueCount: state.minTrueCount,
         playerSeatNumbers: state.playerSeatNumbers,
