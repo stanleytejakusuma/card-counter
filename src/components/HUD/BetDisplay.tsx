@@ -137,7 +137,7 @@ export function BetDisplay() {
 
   return (
     <div className="text-center">
-      <div className={`text-5xl font-bold font-mono ${bet.hasEdge ? 'text-green-300' : 'text-neutral-500'}`}>
+      <div className={`text-5xl font-bold font-mono ${bet.hasEdge ? 'text-green-300' : bet.amount === TABLE_MIN ? 'text-neutral-600' : 'text-neutral-300'}`}>
         BET: {formatCurrency(bet.amount)}
         <span
           className="text-2xl ml-2 text-neutral-500 cursor-pointer hover:text-blue-400 transition-colors"

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 export function HUDLayout({ children, guide, scoreboard }: { children: ReactNode; guide?: ReactNode; scoreboard?: ReactNode }) {
   return (
-    <div className="h-dvh bg-[#0a0a0a] text-white font-mono flex items-start justify-center p-3 select-none overflow-hidden">
+    <div className="h-dvh bg-[#0a0a0a] text-white font-mono flex items-start justify-center p-3 select-none overflow-hidden" onContextMenu={(e) => e.preventDefault()}>
       <div className="flex gap-3 w-full max-w-7xl justify-center h-full">
         {/* Left column: guide — visible at xl (1280px+) */}
         {guide && (

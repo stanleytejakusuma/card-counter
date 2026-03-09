@@ -87,7 +87,7 @@ src/
 - Outcome keys only active during awaitingOutcome state; card keys clear it silently
 - History viewer blocks all game keys while open
 - 7-seat table model (Evolution Gaming), player occupies up to 4 seats
-- Each seat supports 1 split (2 hands max)
+- Each seat supports up to 3 resplits (4 hands max)
 - Per-seat bet overrides (null = Kelly default)
 - Even money: BJ vs dealer Ace, 1:1 payout
 - Split aces auto-advance after 1 card each
