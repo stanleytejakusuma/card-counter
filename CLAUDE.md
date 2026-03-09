@@ -104,7 +104,9 @@ src/
 
 ### Game Logic
 - `card-counter-evolution-rules-defaults`: Evolution BJ: 8-deck S17 NDAS, max 1 split (2 hands). settingsStore defaults doubleAfterSplit: false. Strategy engine handles NDAS via Ph → H conditional.
-- `card-counter-split-deal-phase`: _splitDealInProgress gates decisions until all split hands get 2nd card. Auto-advances through hands, handles re-splits, undo regresses then merges. Split aces auto-complete. Max 1 split/seat (2 hands).
+- `card-counter-split-deal-phase`: _splitDealInProgress gates decisions until all split hands get 2nd card. Auto-advances through hands, handles re-splits, undo regresses then merges. Split aces auto-complete. Max 3 resplits/seat (4 hands).
+- `card-counter-resplit-enabled`: Resplitting allowed — max 4 hands per seat. Guard: `seat.hands.length >= 4`. Split deal logic iterates fromSplit hands with cards.length === 1.
+- `card-counter-preround-tc-bet-fix`: Bet uses pre-round TC (before table cards). gameStore captures _roundStartRC/_roundStartCardsSeen at idle→player. RoundSnapshot stores preRoundRC/preRoundCardsSeen. historyRecorder uses betTC for spread calc.
 - `card-counter-multi-seat-play-order`: _dealOrderIndex for round-robin dealing, _activePlaySeat for play-order advancement through player+occupied seats. Phase-aware button layout (deal→play→table→end round).
 - `card-counter-auto-outcome`: determineOutcome() in hand.ts computes W/L/P/BJ from player vs dealer totals. Called in confirmHand() with [dealerUpcard, ..._dealerHits]. Auto-records via historyRecorder, skips outcome UI prompt. Player seats only.
 - `card-counter-occupied-splits`: Other players can split pairs. _occupiedSplitSeats + _occupiedActiveSubHand state. Cards tagged S{n}.1/S{n}.2. Scoreboard renders split hands with pipe separator. Next/Tab advances sub-hands.
@@ -122,3 +124,5 @@ src/
 - `card-counter-dashboard-analytics`: SessionStats (center column, always visible) shows P&L/winrate/$/hr/hands-hr/hands-shoe. TCBracketStats + ShoeQuality in Analytics panel. tcBrackets + shoePeakTCs in sessionStore (persist v5). trueCount on PendingOutcome. ShoeProgress has % label + amber 75% shuffle zone.
 - `card-counter-layout-pin`: Three-zone vertically centered layout. Top: session telemetry. Center (flex-1 justify-center): CompactCountStrip + CardButtons + CardFeedback + InsuranceIndicator + HandDisplay. Bottom: RC/Decks bar. Card buttons at ~40% viewport height.
 - `card-counter-sqlite-fk-crash-fix`: PUT handler catches SQLITE_CONSTRAINT_FOREIGNKEY, creates placeholder parent rows (INSERT OR IGNORE), retries upsert. Prevents dev server crash from async write ordering.
+- `card-counter-bet-color-tiers`: 3-tier bet coloring: TABLE_MIN ($5) = text-neutral-600 (dim), minBet ($8) = text-neutral-300 (bright), spread ($16+) = text-green-300. In BetDisplay.tsx and CompactCountStrip.tsx.
+- `card-counter-right-click-disabled`: Context menu disabled via onContextMenu preventDefault on HUDLayout root div.
