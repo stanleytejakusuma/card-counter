@@ -103,14 +103,15 @@ src/
 - `card-counter-partial-upsert-merge`: PUT handler reads existing DB row and merges incoming fields over it before upsert. Prevents pagehide partial SessionRecord from nullifying startTime/rules.
 
 ### Game Logic
-- `card-counter-evolution-rules-defaults`: Evolution BJ: 8-deck S17 NDAS, max 1 split (2 hands). settingsStore defaults doubleAfterSplit: false. Strategy engine handles NDAS via Ph → H conditional.
+- `card-counter-evolution-rules-defaults`: Evolution BJ: 8-deck S17 NDAS. Resplitting allowed — max 4 hands/seat (3 resplits). NDAS: doubleAfterSplit false. Tables: "Blackjack Classic Ru 11", "Ventuno Camogli". Multi-seat (6+7).
 - `card-counter-split-deal-phase`: _splitDealInProgress gates decisions until all split hands get 2nd card. Auto-advances through hands, handles re-splits, undo regresses then merges. Split aces auto-complete. Max 3 resplits/seat (4 hands).
 - `card-counter-resplit-enabled`: Resplitting allowed — max 4 hands per seat. Guard: `seat.hands.length >= 4`. Split deal logic iterates fromSplit hands with cards.length === 1.
 - `card-counter-preround-tc-bet-fix`: Bet uses pre-round TC (before table cards). gameStore captures _roundStartRC/_roundStartCardsSeen at idle→player. RoundSnapshot stores preRoundRC/preRoundCardsSeen. historyRecorder uses betTC for spread calc.
 - `card-counter-multi-seat-play-order`: _dealOrderIndex for round-robin dealing, _activePlaySeat for play-order advancement through player+occupied seats. Phase-aware button layout (deal→play→table→end round).
 - `card-counter-auto-outcome`: determineOutcome() in hand.ts computes W/L/P/BJ from player vs dealer totals. Called in confirmHand() with [dealerUpcard, ..._dealerHits]. Auto-records via historyRecorder, skips outcome UI prompt. Player seats only.
 - `card-counter-occupied-splits`: Other players can split pairs. _occupiedSplitSeats + _occupiedActiveSubHand state. Cards tagged S{n}.1/S{n}.2. Scoreboard renders split hands with pipe separator. Next/Tab advances sub-hands.
-- `card-counter-tc-spread-bet`: TC spread: bet = minBet + (floor(TC) - 1) × unitSize when TC >= 2, else minBet. 1-10 spread. calculateSpreadBet() in kelly.ts. Defaults: $8 min, $80 max, $8 unit.
+- `card-counter-tc-spread-bet`: 3-tier TC spread: TC<0.5→$5 TABLE_MIN, TC 0.5-1.5→$8 minBet, TC≥1.5→minBet+floor(TC)×unitSize capped at maxBet. hasEdge only at TC≥1.5. Defaults: $8 min, $80 max, $8 unit.
+- `card-counter-data-eval-milestones`: 500-1000 hands for initial TC bracket gut-check (win rate, avg bet per tier). 5000+ for statistically significant spread validation. ~120 hands in DB as of Mar 2026.
 - `card-counter-round-context-scoping`: cardContextHistory accumulates across all rounds. Any code scanning for 'D' target MUST first scope to current round by slicing after the last 'T' (table-phase) target. Five locations fixed: recomputeDealOrderIndex, Scoreboard occupied cards, CardButtons split detection, inputCard occupied total, undoLastCard bust detection.
 - `card-counter-undo-table-regression`: Undo in table phase with no dealer hits regresses handPhase to 'player', restores _activePlaySeat to last seat in play order. Pure navigation undo, no card removal.
 - `card-counter-observe-mode`: Observe round skips player hands, tracks only occupied seat cards for running count. _observeRound + getPlayOrder() helper replaces 8+ hardcoded play order calls. Amber UI button in idle phase.
