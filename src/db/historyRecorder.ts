@@ -11,7 +11,7 @@ import { useSettingsStore } from '../stores/settingsStore.js';
 import { calculateHandTotal } from '../engine/hand.js';
 import { calculateTrueCount, calculateDecksRemaining } from '../engine/counting.js';
 import { getStrategyAdvice } from '../engine/strategy.js';
-import { calculateSpreadBet } from '../engine/kelly.js';
+import { calculateSpreadBet, calculateRecommendedHands } from '../engine/kelly.js';
 
 let initialized = false;
 let _finalizingSessionId: string | null = null;
@@ -155,6 +155,18 @@ export function initHistoryRecorder() {
         unitSize: session.unitSize,
       });
 
+      const handsRec = calculateRecommendedHands({
+        trueCount: betTC,
+        minBet: session.minBet,
+        maxBet: session.maxBet,
+        unitSize: session.unitSize,
+        bankroll: session.bankroll,
+      });
+
+      // Use multi-hand adjusted bet when playing multiple seats
+      const isMultiHand = state.playerSeatNumbers.length > 1;
+      const defaultBet = isMultiHand ? handsRec.perHandBet : spreadBet.amount;
+
       const pendingOutcomes: { handId: string; betAmount: number; seatIndex: number; seatNumber: number; handIndex: number; label: string }[] = [];
       let hasDeviation = false;
       let handCounter = 0;
@@ -162,7 +174,7 @@ export function initHistoryRecorder() {
       // Nested loop: seat → hand
       for (let i = 0; i < seats.length; i++) {
         const seat = seats[i];
-        const baseBet = seat.betOverride ?? spreadBet.amount;
+        const baseBet = seat.betOverride ?? defaultBet;
 
         for (let j = 0; j < seat.hands.length; j++) {
           const hand = seat.hands[j];
@@ -194,7 +206,7 @@ export function initHistoryRecorder() {
             trueCount: tc,
             decksRemaining: dr,
             strategyAdvice: adviceStr,
-            betRecommendation: spreadBet.amount,
+            betRecommendation: defaultBet,
             outcome: snapshotOutcome,
             betAmount: actualBet,
             netResult: null,
@@ -250,7 +262,7 @@ export function initHistoryRecorder() {
         const lastRound = roundHistory[roundHistory.length - 1];
         const updatedSeats = lastRound.seats.map((s, idx) => {
           const confirmedSeat = seats[idx];
-          const baseBet = confirmedSeat?.betOverride ?? spreadBet.amount;
+          const baseBet = confirmedSeat?.betOverride ?? defaultBet;
           return { ...s, betAmount: baseBet };
         });
         const updatedRound = { ...lastRound, seats: updatedSeats, trueCount: tc };

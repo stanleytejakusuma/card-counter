@@ -48,6 +48,9 @@ export function CompactCountStrip() {
   const handsRec = calculateRecommendedHands({ trueCount: tc, minBet, maxBet, unitSize, bankroll });
   const multiSeat = playerSeatNumbers.length > 1;
 
+  // Effective per-hand bet: multi-hand adjusted when playing multiple seats
+  const effectiveBet = multiSeat && handsRec.hands > 1 ? handsRec.perHandBet : bet.amount;
+
   // Strategy advice
   const seat = seats[activeSeatIndex];
   const hand = seat?.hands[seat.activeHandIndex];
@@ -200,14 +203,14 @@ export function CompactCountStrip() {
         {/* Right: Bet */}
         <div className="text-right">
           <div className="text-[10px] uppercase tracking-widest text-neutral-600">BET</div>
-          <div className={`text-2xl font-bold font-mono leading-none ${bet.hasEdge ? 'text-green-300' : bet.amount === TABLE_MIN ? 'text-neutral-600' : 'text-neutral-300'}`}>
-            {formatCurrency(bet.amount)}
+          <div className={`text-2xl font-bold font-mono leading-none ${bet.hasEdge ? 'text-green-300' : effectiveBet === TABLE_MIN ? 'text-neutral-600' : 'text-neutral-300'}`}>
+            {formatCurrency(effectiveBet)}
           </div>
           <span
             className="text-xs text-neutral-500 cursor-pointer hover:text-blue-400 transition-colors"
             onClick={startEdit}
           >
-            ({bet.amount === TABLE_MIN ? 'tbl min' : `${bet.units}u`})
+            ({effectiveBet === TABLE_MIN ? 'tbl min' : `${Math.round(effectiveBet / unitSize)}u`})
           </span>
         </div>
       </div>
@@ -234,7 +237,7 @@ export function CompactCountStrip() {
               }}
               className="text-neutral-400 hover:text-blue-300 transition-colors cursor-pointer"
             >
-              S{s.seatNumber}: {formatCurrency(s.betOverride ?? bet.amount)}
+              S{s.seatNumber}: {formatCurrency(s.betOverride ?? effectiveBet)}
               {s.betOverride != null && <span className="text-blue-400 ml-0.5">*</span>}
             </button>
           ))}

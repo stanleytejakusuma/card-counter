@@ -22,6 +22,9 @@ export function BetDisplay() {
   const bet = calculateSpreadBet({ trueCount: tc, minBet, maxBet, unitSize });
   const handsRec = calculateRecommendedHands({ trueCount: tc, minBet, maxBet, unitSize, bankroll });
 
+  // Effective per-hand bet: multi-hand adjusted when playing multiple seats
+  const effectiveBet = multiSeat && handsRec.hands > 1 ? handsRec.perHandBet : bet.amount;
+
   useEffect(() => {
     if (editing && unitRef.current) {
       unitRef.current.focus();
@@ -132,19 +135,19 @@ export function BetDisplay() {
   }
 
   // Calculate total exposure
-  const seatBets = seats.map((s) => s.betOverride ?? bet.amount);
+  const seatBets = seats.map((s) => s.betOverride ?? effectiveBet);
   const totalExposure = seatBets.reduce((sum, b) => sum + b, 0);
 
   return (
     <div className="text-center">
-      <div className={`text-5xl font-bold font-mono ${bet.hasEdge ? 'text-green-300' : bet.amount === TABLE_MIN ? 'text-neutral-600' : 'text-neutral-300'}`}>
-        BET: {formatCurrency(bet.amount)}
+      <div className={`text-5xl font-bold font-mono ${bet.hasEdge ? 'text-green-300' : effectiveBet === TABLE_MIN ? 'text-neutral-600' : 'text-neutral-300'}`}>
+        BET: {formatCurrency(effectiveBet)}
         <span
           className="text-2xl ml-2 text-neutral-500 cursor-pointer hover:text-blue-400 transition-colors"
           onClick={startEdit}
           title="Click to edit unit size & bet limits"
         >
-          ({bet.amount === TABLE_MIN ? 'tbl min' : `${bet.units}u`})
+          ({effectiveBet === TABLE_MIN ? 'tbl min' : `${Math.round(effectiveBet / unitSize)}u`})
         </span>
       </div>
       {multiSeat && (
@@ -156,7 +159,7 @@ export function BetDisplay() {
               className="text-xs text-neutral-400 hover:text-blue-300 transition-colors cursor-pointer"
               title={`Click to set bet override for Seat ${seat.seatNumber}`}
             >
-              S{seat.seatNumber}: {formatCurrency(seat.betOverride ?? bet.amount)}
+              S{seat.seatNumber}: {formatCurrency(seat.betOverride ?? effectiveBet)}
               {seat.betOverride != null && <span className="text-blue-400 ml-0.5">*</span>}
             </button>
           ))}
