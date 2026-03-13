@@ -92,26 +92,43 @@ export interface SpreadParams {
   unitSize: number;
 }
 
+/** Middle-tier bet at neutral counts (TC 0.5–1.5). */
+const NEUTRAL_BET = 10;
+
+/** Spread unit size at positive TC — more aggressive than base unit. */
+const SPREAD_UNIT = 10;
+
 /**
- * 2-tier TC spread:
- *   TC < 1.5  → minBet (1 unit, no edge)
- *   TC ≥ 1.5  → minBet + floor(TC) × unitSize, capped at maxBet
+ * 3-tier TC spread:
+ *   TC < 0.5  → minBet ($5, minimize bleed)
+ *   TC 0.5–1.5 → NEUTRAL_BET ($10, neutral count)
+ *   TC ≥ 1.5  → NEUTRAL_BET + floor(TC) × SPREAD_UNIT, capped at maxBet
  */
 export function calculateSpreadBet(params: SpreadParams): BetRecommendation {
   const { trueCount, minBet, maxBet, unitSize } = params;
   const edge = calculateEdge(trueCount);
 
-  if (trueCount < 1.5) {
+  if (trueCount < 0.5) {
     return {
       amount: minBet,
-      units: 1,
+      units: Math.round(minBet / unitSize * 10) / 10,
       edge,
       fullKellyBet: 0,
       hasEdge: false,
     };
   }
 
-  let bet = minBet + Math.floor(trueCount) * unitSize;
+  if (trueCount < 1.5) {
+    return {
+      amount: NEUTRAL_BET,
+      units: Math.round(NEUTRAL_BET / unitSize * 10) / 10,
+      edge,
+      fullKellyBet: 0,
+      hasEdge: false,
+    };
+  }
+
+  let bet = NEUTRAL_BET + Math.floor(trueCount) * SPREAD_UNIT;
   bet = Math.max(minBet, Math.min(maxBet, bet));
 
   return {
@@ -153,13 +170,14 @@ export function calculateRecommendedHands(params: HandsParams): HandsRecommendat
   const { trueCount, minBet, maxBet, unitSize, bankroll } = params;
   const unitsAvailable = bankroll / minBet;
 
-  // No edge — 1 hand, min bet
+  // No edge — 1 hand, appropriate bet
   if (trueCount < 1.5) {
+    const betAmount = trueCount < 0.5 ? minBet : NEUTRAL_BET;
     return {
       hands: 1,
-      perHandBet: minBet,
-      totalExposure: minBet,
-      reason: 'No edge — minimum bet',
+      perHandBet: betAmount,
+      totalExposure: betAmount,
+      reason: trueCount < 0.5 ? 'Negative count — minimum bet' : 'Neutral count — single hand',
     };
   }
 
@@ -169,7 +187,7 @@ export function calculateRecommendedHands(params: HandsParams): HandsRecommendat
 
   if (!canPlayTwo) {
     // Bankroll too thin for multi-hand — single hand with spread bet
-    const singleBet = Math.max(minBet, Math.min(maxBet, minBet + Math.floor(trueCount) * unitSize));
+    const singleBet = Math.max(minBet, Math.min(maxBet, NEUTRAL_BET + Math.floor(trueCount) * SPREAD_UNIT));
     return {
       hands: 1,
       perHandBet: singleBet,
@@ -193,7 +211,7 @@ export function calculateRecommendedHands(params: HandsParams): HandsRecommendat
   }
 
   // Base single-hand bet from spread
-  const singleBet = Math.max(minBet, Math.min(maxBet, minBet + Math.floor(trueCount) * unitSize));
+  const singleBet = Math.max(minBet, Math.min(maxBet, NEUTRAL_BET + Math.floor(trueCount) * SPREAD_UNIT));
 
   // Adjust per-hand bet for multi-hand correlation
   let perHandBet = Math.round(singleBet * correlationFactor / unitSize) * unitSize;
@@ -218,10 +236,10 @@ export function calculateRecommendedHands(params: HandsParams): HandsRecommendat
 
 export const DEFAULT_KELLY_PARAMS: Omit<KellyParams, 'trueCount'> = {
   bankroll: 400,
-  minBet: 1,
+  minBet: 5,
   maxBet: 100,
   kellyFraction: 0.25,
   baseHouseEdge: 0.005,
   edgePerTrueCount: 0.005,
-  unitSize: 1,
+  unitSize: 5,
 };
