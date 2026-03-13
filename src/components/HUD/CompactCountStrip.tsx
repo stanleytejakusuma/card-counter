@@ -3,7 +3,7 @@ import { useGameStore } from '../../stores/gameStore.js';
 import { useSessionStore } from '../../stores/sessionStore.js';
 import { useSettingsStore } from '../../stores/settingsStore.js';
 import { calculateTrueCount } from '../../engine/counting.js';
-import { calculateSpreadBet, calculateRecommendedHands, TABLE_MIN } from '../../engine/kelly.js';
+import { calculateSpreadBet, calculateRecommendedHands } from '../../engine/kelly.js';
 import { getStrategyAdvice } from '../../engine/strategy.js';
 import { formatTrueCount, formatCurrency } from '../../utils/formatters.js';
 import type { StrategyAction } from '../../engine/types.js';
@@ -203,14 +203,14 @@ export function CompactCountStrip() {
         {/* Right: Bet */}
         <div className="text-right">
           <div className="text-[10px] uppercase tracking-widest text-neutral-600">BET</div>
-          <div className={`text-2xl font-bold font-mono leading-none ${bet.hasEdge ? 'text-green-300' : effectiveBet === TABLE_MIN ? 'text-neutral-600' : 'text-neutral-300'}`}>
+          <div className={`text-2xl font-bold font-mono leading-none ${bet.hasEdge ? 'text-green-300' : 'text-neutral-500'}`}>
             {formatCurrency(effectiveBet)}
           </div>
           <span
             className="text-xs text-neutral-500 cursor-pointer hover:text-blue-400 transition-colors"
             onClick={startEdit}
           >
-            ({effectiveBet === TABLE_MIN ? 'tbl min' : `${Math.round(effectiveBet / unitSize)}u`})
+            ({`${Math.round(effectiveBet / unitSize)}u`})
           </span>
         </div>
       </div>

@@ -3,7 +3,7 @@ import { useGameStore } from '../../stores/gameStore.js';
 import { useSessionStore } from '../../stores/sessionStore.js';
 import { useSettingsStore } from '../../stores/settingsStore.js';
 import { calculateTrueCount } from '../../engine/counting.js';
-import { calculateSpreadBet, calculateRecommendedHands, TABLE_MIN } from '../../engine/kelly.js';
+import { calculateSpreadBet, calculateRecommendedHands } from '../../engine/kelly.js';
 import { formatCurrency } from '../../utils/formatters.js';
 
 export function BetDisplay() {
@@ -140,14 +140,14 @@ export function BetDisplay() {
 
   return (
     <div className="text-center">
-      <div className={`text-5xl font-bold font-mono ${bet.hasEdge ? 'text-green-300' : effectiveBet === TABLE_MIN ? 'text-neutral-600' : 'text-neutral-300'}`}>
+      <div className={`text-5xl font-bold font-mono ${bet.hasEdge ? 'text-green-300' : 'text-neutral-500'}`}>
         BET: {formatCurrency(effectiveBet)}
         <span
           className="text-2xl ml-2 text-neutral-500 cursor-pointer hover:text-blue-400 transition-colors"
           onClick={startEdit}
           title="Click to edit unit size & bet limits"
         >
-          ({effectiveBet === TABLE_MIN ? 'tbl min' : `${Math.round(effectiveBet / unitSize)}u`})
+          ({`${Math.round(effectiveBet / unitSize)}u`})
         </span>
       </div>
       {multiSeat && (
