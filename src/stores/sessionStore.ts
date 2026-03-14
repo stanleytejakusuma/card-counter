@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { HandOutcome } from '../engine/historyTypes.js';
-import { updateHandOutcome } from '../db/historyDb.js';
+import { updateHandOutcome, updateHandSideBets } from '../db/historyDb.js';
 
 let _nextId = 0;
 function generateId(): string {
@@ -46,6 +46,11 @@ interface SessionState {
   awaitingOutcomes: PendingOutcome[];
   activeOutcomeIndex: number;
 
+  awaitingSideBets: boolean;
+  sideBetHandIds: string[];
+  activeSideBetIndex: number;
+  sideBetToggles: { pp: boolean; twentyOneThree: boolean };
+
   handsWon: number;
   handsLost: number;
   handsPushed: number;
@@ -66,6 +71,10 @@ interface SessionState {
   setAwaitingOutcomes: (outcomes: PendingOutcome[]) => void;
   clearAwaitingOutcome: () => void;
   recordOutcome: (outcome: HandOutcome) => void;
+  setAwaitingSideBets: (handIds: string[]) => void;
+  clearAwaitingSideBets: () => void;
+  toggleSideBet: (type: 'pp' | 'twentyOneThree') => void;
+  confirmSideBets: () => void;
   incrementDeviations: () => void;
   recordShoePeakTC: (peakTC: number) => void;
 
@@ -88,6 +97,11 @@ export const useSessionStore = create<SessionState>()(
       currentSessionId: null,
       awaitingOutcomes: [],
       activeOutcomeIndex: 0,
+
+      awaitingSideBets: false,
+      sideBetHandIds: [],
+      activeSideBetIndex: 0,
+      sideBetToggles: { pp: false, twentyOneThree: false },
 
       handsWon: 0,
       handsLost: 0,
@@ -128,6 +142,10 @@ export const useSessionStore = create<SessionState>()(
           currentSessionId: null,
           awaitingOutcomes: [],
           activeOutcomeIndex: 0,
+          awaitingSideBets: false,
+          sideBetHandIds: [],
+          activeSideBetIndex: 0,
+          sideBetToggles: { pp: false, twentyOneThree: false },
           handsWon: 0,
           handsLost: 0,
           handsPushed: 0,
@@ -147,6 +165,51 @@ export const useSessionStore = create<SessionState>()(
 
       clearAwaitingOutcome: () =>
         set({ awaitingOutcomes: [], activeOutcomeIndex: 0 }),
+
+      setAwaitingSideBets: (handIds) =>
+        set({ awaitingSideBets: true, sideBetHandIds: handIds, activeSideBetIndex: 0, sideBetToggles: { pp: false, twentyOneThree: false } }),
+
+      clearAwaitingSideBets: () => {
+        // Flush current toggles before clearing
+        const state = get();
+        if (state.awaitingSideBets && state.activeSideBetIndex < state.sideBetHandIds.length) {
+          const { pp, twentyOneThree } = state.sideBetToggles;
+          if (pp || twentyOneThree) {
+            const handId = state.sideBetHandIds[state.activeSideBetIndex];
+            updateHandSideBets(handId, {
+              ...(pp ? { pp: true } : {}),
+              ...(twentyOneThree ? { twentyOneThree: true } : {}),
+            }).catch(console.error);
+          }
+        }
+        set({ awaitingSideBets: false, sideBetHandIds: [], activeSideBetIndex: 0, sideBetToggles: { pp: false, twentyOneThree: false } });
+      },
+
+      toggleSideBet: (type) => {
+        const state = get();
+        set({ sideBetToggles: { ...state.sideBetToggles, [type]: !state.sideBetToggles[type] } });
+      },
+
+      confirmSideBets: () => {
+        const state = get();
+        if (!state.awaitingSideBets || state.activeSideBetIndex >= state.sideBetHandIds.length) return;
+
+        const { pp, twentyOneThree } = state.sideBetToggles;
+        if (pp || twentyOneThree) {
+          const handId = state.sideBetHandIds[state.activeSideBetIndex];
+          updateHandSideBets(handId, {
+            ...(pp ? { pp: true } : {}),
+            ...(twentyOneThree ? { twentyOneThree: true } : {}),
+          }).catch(console.error);
+        }
+
+        const nextIndex = state.activeSideBetIndex + 1;
+        if (nextIndex >= state.sideBetHandIds.length) {
+          set({ awaitingSideBets: false, sideBetHandIds: [], activeSideBetIndex: 0, sideBetToggles: { pp: false, twentyOneThree: false } });
+        } else {
+          set({ activeSideBetIndex: nextIndex, sideBetToggles: { pp: false, twentyOneThree: false } });
+        }
+      },
 
       recordOutcome: (outcome: HandOutcome) => {
         const state = get();
@@ -202,10 +265,16 @@ export const useSessionStore = create<SessionState>()(
         const nextIndex = state.activeOutcomeIndex + 1;
         const allDone = nextIndex >= state.awaitingOutcomes.length;
 
+        // Collect hand IDs for side bet prompt before clearing
+        const handIds = allDone
+          ? state.awaitingOutcomes.map((o) => o.handId)
+          : [];
+
         set({
           bankroll: state.bankroll + netResult,
           activeOutcomeIndex: nextIndex,
           ...(allDone ? { awaitingOutcomes: [] as PendingOutcome[], activeOutcomeIndex: 0 } : {}),
+          ...(allDone && handIds.length > 0 ? { awaitingSideBets: true, sideBetHandIds: handIds, activeSideBetIndex: 0 } : {}),
           ...counterUpdates,
           tcBrackets: updatedBrackets,
         });

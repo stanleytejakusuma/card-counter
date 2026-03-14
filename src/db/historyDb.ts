@@ -205,6 +205,32 @@ export function getHandById(handId: string): Promise<HandRecord | undefined> {
   return txGet<HandRecord>('hands', handId);
 }
 
+export function updateHandSideBets(
+  handId: string,
+  sideBetWins: { pp?: boolean; twentyOneThree?: boolean },
+): Promise<void> {
+  return openDb().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction('hands', 'readwrite');
+        const store = tx.objectStore('hands');
+        const req = store.get(handId);
+        req.onsuccess = () => {
+          const hand = req.result as HandRecord | undefined;
+          if (hand) {
+            hand.sideBetWins = sideBetWins;
+            store.put(hand);
+          }
+          tx.oncomplete = () => {
+            if (hand) syncRecordToFile('hands', hand);
+            resolve();
+          };
+        };
+        tx.onerror = () => reject(tx.error);
+      }),
+  );
+}
+
 // --- Delete ---
 
 export function deleteSession(sessionId: string): Promise<void> {

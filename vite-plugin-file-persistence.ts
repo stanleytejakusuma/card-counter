@@ -38,10 +38,11 @@ const HAND_FIELDS: Record<string, string> = {
   boxIndex: 'box_index', seatNumber: 'seat_number', handIndex: 'hand_index',
   doubled: 'doubled', fromSplit: 'from_split',
   dealerCards: 'dealer_cards',
+  sideBetWins: 'side_bet_wins',
 };
 
 // Fields that contain JSON objects/arrays
-const JSON_FIELDS = new Set(['rules', 'dealerUpcard', 'playerCards', 'dealerCards', 'cardDistribution']);
+const JSON_FIELDS = new Set(['rules', 'dealerUpcard', 'playerCards', 'dealerCards', 'cardDistribution', 'sideBetWins']);
 // Boolean fields stored as 0/1/null
 const BOOL_FIELDS = new Set(['doubled', 'fromSplit']);
 
@@ -171,6 +172,7 @@ function initDb(): Database.Database {
     'ALTER TABLE hands ADD COLUMN dealer_cards TEXT',
     'ALTER TABLE shoes ADD COLUMN card_distribution TEXT',
     'ALTER TABLE shoes ADD COLUMN table_name TEXT',
+    'ALTER TABLE hands ADD COLUMN side_bet_wins TEXT',
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists */ }

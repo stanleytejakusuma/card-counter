@@ -25,6 +25,7 @@ export interface HandRecord {
   doubled?: boolean;
   fromSplit?: boolean;
   dealerCards?: Card[];
+  sideBetWins?: { pp?: boolean; twentyOneThree?: boolean };
 }
 
 export interface ShoeRecord {

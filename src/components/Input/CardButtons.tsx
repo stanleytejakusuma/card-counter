@@ -38,6 +38,10 @@ export function CardButtons() {
   const awaitingOutcomes = useSessionStore((s) => s.awaitingOutcomes);
   const activeOutcomeIndex = useSessionStore((s) => s.activeOutcomeIndex);
   const awaitingOutcome = useSessionStore((s) => s.awaitingOutcome);
+  const awaitingSideBets = useSessionStore((s) => s.awaitingSideBets);
+  const sideBetHandIds = useSessionStore((s) => s.sideBetHandIds);
+  const activeSideBetIndex = useSessionStore((s) => s.activeSideBetIndex);
+  const sideBetToggles = useSessionStore((s) => s.sideBetToggles);
   const lateSurrender = useSettingsStore((s) => s.rules.lateSurrender);
 
   const _activePlaySeat = useGameStore((s) => s._activePlaySeat);
@@ -88,6 +92,9 @@ export function CardButtons() {
   function handleCardClick(rank: Rank) {
     if (awaitingOutcome) {
       useSessionStore.getState().clearAwaitingOutcome();
+    }
+    if (awaitingSideBets) {
+      useSessionStore.getState().clearAwaitingSideBets();
     }
     useGameStore.getState().inputCard(rank);
     useSessionStore.getState().startSession();
@@ -159,6 +166,48 @@ export function CardButtons() {
 
   function handleOutcome(outcome: HandOutcome) {
     useSessionStore.getState().recordOutcome(outcome);
+  }
+
+  // Show side bet prompt after outcomes complete
+  if (awaitingSideBets && !awaitingOutcome) {
+    const totalSeats = sideBetHandIds.length;
+    const seatLabel = totalSeats > 1 ? ` (${activeSideBetIndex + 1}/${totalSeats})` : '';
+
+    return (
+      <div className="space-y-2">
+        <div className="text-center text-xs text-cyan-400 font-semibold">
+          Side bet wins?{seatLabel}
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            onClick={() => useSessionStore.getState().toggleSideBet('pp')}
+            className={`border rounded-lg py-3 text-sm font-bold active:scale-95 transition-all ${
+              sideBetToggles.pp
+                ? 'bg-cyan-800/60 border-cyan-500 text-cyan-200'
+                : 'bg-neutral-800/50 border-neutral-700 text-neutral-400'
+            }`}
+          >
+            PP
+          </button>
+          <button
+            onClick={() => useSessionStore.getState().toggleSideBet('twentyOneThree')}
+            className={`border rounded-lg py-3 text-sm font-bold active:scale-95 transition-all ${
+              sideBetToggles.twentyOneThree
+                ? 'bg-violet-800/60 border-violet-500 text-violet-200'
+                : 'bg-neutral-800/50 border-neutral-700 text-neutral-400'
+            }`}
+          >
+            21+3
+          </button>
+        </div>
+        <button
+          onClick={() => useSessionStore.getState().confirmSideBets()}
+          className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg py-2 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 active:scale-95 transition-all"
+        >
+          {totalSeats > 1 && activeSideBetIndex < totalSeats - 1 ? 'Next' : 'Done'}
+        </button>
+      </div>
+    );
   }
 
   // Show outcome buttons when awaiting

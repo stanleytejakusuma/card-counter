@@ -132,6 +132,21 @@ export function HandDetailView() {
           )}
         </div>
       </div>
+
+      {/* Side bet wins */}
+      {hand.sideBetWins && (hand.sideBetWins.pp || hand.sideBetWins.twentyOneThree) && (
+        <div className="border border-neutral-800 rounded-lg p-3">
+          <div className="text-neutral-500 text-xs mb-1">Side Bets</div>
+          <div className="flex items-center gap-3">
+            {hand.sideBetWins.pp && (
+              <span className="text-cyan-400 font-bold text-sm">PP</span>
+            )}
+            {hand.sideBetWins.twentyOneThree && (
+              <span className="text-violet-400 font-bold text-sm">21+3</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
