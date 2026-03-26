@@ -86,38 +86,43 @@ describe('calculateKellyBet', () => {
 });
 
 describe('calculateSpreadBet', () => {
-  const params = { minBet: 5, maxBet: 100, unitSize: 5 };
+  const params = { minBet: 5, maxBet: 50, unitSize: 5 };
 
-  it('returns minBet ($5) at TC < 0.5', () => {
+  it('returns minBet ($5) at TC < -0.5', () => {
     expect(calculateSpreadBet({ ...params, trueCount: -2 }).amount).toBe(5);
-    expect(calculateSpreadBet({ ...params, trueCount: 0 }).amount).toBe(5);
-    expect(calculateSpreadBet({ ...params, trueCount: 0.49 }).amount).toBe(5);
+    expect(calculateSpreadBet({ ...params, trueCount: -1 }).amount).toBe(5);
+    expect(calculateSpreadBet({ ...params, trueCount: -0.51 }).amount).toBe(5);
   });
 
-  it('returns $10 neutral bet at TC 0.5–1.5', () => {
-    expect(calculateSpreadBet({ ...params, trueCount: 0.5 }).amount).toBe(10);
-    expect(calculateSpreadBet({ ...params, trueCount: 1.0 }).amount).toBe(10);
-    expect(calculateSpreadBet({ ...params, trueCount: 1.49 }).amount).toBe(10);
+  it('returns $10 base bet at TC -0.5 to 0.5', () => {
+    expect(calculateSpreadBet({ ...params, trueCount: -0.49 }).amount).toBe(10);
+    expect(calculateSpreadBet({ ...params, trueCount: 0 }).amount).toBe(10);
+    expect(calculateSpreadBet({ ...params, trueCount: 0.49 }).amount).toBe(10);
   });
 
-  it('spreads at TC >= 1.5: $10 + floor(TC) × $10', () => {
-    // TC 1.5: $10 + 1×$10 = $20
+  it('ramps $5 per TC level: 6-tier spread', () => {
+    // TC 0.5: $15
+    expect(calculateSpreadBet({ ...params, trueCount: 0.5 }).amount).toBe(15);
+    // TC 1.0: $15
+    expect(calculateSpreadBet({ ...params, trueCount: 1.0 }).amount).toBe(15);
+    // TC 1.5: $20
     expect(calculateSpreadBet({ ...params, trueCount: 1.5 }).amount).toBe(20);
-    // TC 2.0: $10 + 2×$10 = $30
-    expect(calculateSpreadBet({ ...params, trueCount: 2.0 }).amount).toBe(30);
-    // TC 2.9: floor(2.9)=2, $10 + 2×$10 = $30
-    expect(calculateSpreadBet({ ...params, trueCount: 2.9 }).amount).toBe(30);
-    // TC 3.0: $10 + 3×$10 = $40
-    expect(calculateSpreadBet({ ...params, trueCount: 3.0 }).amount).toBe(40);
-    // TC 5.0: $10 + 5×$10 = $60
-    expect(calculateSpreadBet({ ...params, trueCount: 5.0 }).amount).toBe(60);
+    // TC 2.0: $20
+    expect(calculateSpreadBet({ ...params, trueCount: 2.0 }).amount).toBe(20);
+    // TC 2.5: $25
+    expect(calculateSpreadBet({ ...params, trueCount: 2.5 }).amount).toBe(25);
+    // TC 3.5: $30
+    expect(calculateSpreadBet({ ...params, trueCount: 3.5 }).amount).toBe(30);
+    // TC 4.5: $35
+    expect(calculateSpreadBet({ ...params, trueCount: 4.5 }).amount).toBe(35);
   });
 
   it('clamps to maxBet', () => {
-    expect(calculateSpreadBet({ ...params, trueCount: 25 }).amount).toBe(100);
+    expect(calculateSpreadBet({ ...params, trueCount: 25 }).amount).toBe(50);
   });
 
   it('reports hasEdge correctly', () => {
+    expect(calculateSpreadBet({ ...params, trueCount: -1 }).hasEdge).toBe(false);
     expect(calculateSpreadBet({ ...params, trueCount: 0 }).hasEdge).toBe(false);
     expect(calculateSpreadBet({ ...params, trueCount: 1.0 }).hasEdge).toBe(false);
     expect(calculateSpreadBet({ ...params, trueCount: 1.5 }).hasEdge).toBe(true);
@@ -125,11 +130,13 @@ describe('calculateSpreadBet', () => {
   });
 
   it('reports correct units', () => {
-    // TC 0: $5/$5 = 1u
-    expect(calculateSpreadBet({ ...params, trueCount: 0 }).units).toBe(1);
-    // TC 1.0: $10/$5 = 2u
-    expect(calculateSpreadBet({ ...params, trueCount: 1.0 }).units).toBe(2);
-    // TC 3.0: $40/$5 = 8u
-    expect(calculateSpreadBet({ ...params, trueCount: 3.0 }).units).toBe(8);
+    // TC -1: $5/$5 = 1u
+    expect(calculateSpreadBet({ ...params, trueCount: -1 }).units).toBe(1);
+    // TC 0: $10/$5 = 2u
+    expect(calculateSpreadBet({ ...params, trueCount: 0 }).units).toBe(2);
+    // TC 1.0: $15/$5 = 3u
+    expect(calculateSpreadBet({ ...params, trueCount: 1.0 }).units).toBe(3);
+    // TC 3.5: $30/$5 = 6u
+    expect(calculateSpreadBet({ ...params, trueCount: 3.5 }).units).toBe(6);
   });
 });

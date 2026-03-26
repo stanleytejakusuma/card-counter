@@ -1,22 +1,24 @@
 import { useSessionStore } from '../../stores/sessionStore.js';
 
 const BRACKETS = [
-  { key: 'negative' as const, label: '\u22640' },
-  { key: 'low' as const, label: '1' },
-  { key: 'mid' as const, label: '2-3' },
-  { key: 'high' as const, label: '4+' },
+  { key: 'deepNeg' as const, label: '<-½', bet: '$5' },
+  { key: 'neutral' as const, label: '±0', bet: '$10' },
+  { key: 'low' as const, label: '½‑1½', bet: '$15' },
+  { key: 'mid' as const, label: '1½‑2½', bet: '$20' },
+  { key: 'high' as const, label: '2½‑3½', bet: '$25' },
+  { key: 'veryHigh' as const, label: '3½+', bet: '$30' },
 ];
 
 export function TCBracketStats() {
   const tcBrackets = useSessionStore((s) => s.tcBrackets);
 
-  const rows = BRACKETS.map(({ key, label }) => {
+  const rows = BRACKETS.map(({ key, label, bet }) => {
     const b = tcBrackets[key];
     const total = b.w + b.l + b.p;
     const winPct = total > 0 ? (b.w / total) * 100 : 0;
     const lossPct = total > 0 ? (b.l / total) * 100 : 0;
     const pushPct = total > 0 ? (b.p / total) * 100 : 0;
-    return { label, total, winPct, lossPct, pushPct };
+    return { label, bet, total, winPct, lossPct, pushPct };
   });
 
   const hasData = rows.some((r) => r.total > 0);
@@ -27,7 +29,8 @@ export function TCBracketStats() {
       <div className="text-neutral-500 text-[10px] font-semibold uppercase tracking-wider">Win Rate by TC</div>
       {rows.map((row) => (
         <div key={row.label} className="flex items-center gap-2">
-          <span className="text-[10px] text-neutral-500 w-5 text-right tabular-nums">{row.label}</span>
+          <span className="text-[10px] text-neutral-500 w-7 text-right tabular-nums">{row.label}</span>
+          <span className="text-[10px] text-neutral-600 w-6 text-right tabular-nums">{row.bet}</span>
           <div className="flex-1 h-3 bg-neutral-800 rounded-sm overflow-hidden flex">
             {row.total > 0 ? (
               <>

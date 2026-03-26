@@ -25,10 +25,12 @@ interface TCBracketRecord {
 }
 
 interface TCBrackets {
-  negative: TCBracketRecord; // TC <= 0
-  low: TCBracketRecord;     // TC 1–1.9
-  mid: TCBracketRecord;     // TC 2–3.9
-  high: TCBracketRecord;    // TC 4+
+  deepNeg: TCBracketRecord;   // TC < -0.5
+  neutral: TCBracketRecord;   // TC -0.5 to 0.5
+  low: TCBracketRecord;       // TC 0.5 to 1.5
+  mid: TCBracketRecord;       // TC 1.5 to 2.5
+  high: TCBracketRecord;      // TC 2.5 to 3.5
+  veryHigh: TCBracketRecord;  // TC 3.5+
 }
 
 interface SessionState {
@@ -109,10 +111,12 @@ export const useSessionStore = create<SessionState>()(
       blackjacks: 0,
       deviationsTaken: 0,
       tcBrackets: {
-        negative: { w: 0, l: 0, p: 0 },
+        deepNeg: { w: 0, l: 0, p: 0 },
+        neutral: { w: 0, l: 0, p: 0 },
         low: { w: 0, l: 0, p: 0 },
         mid: { w: 0, l: 0, p: 0 },
         high: { w: 0, l: 0, p: 0 },
+        veryHigh: { w: 0, l: 0, p: 0 },
       },
       shoePeakTCs: [],
 
@@ -152,10 +156,12 @@ export const useSessionStore = create<SessionState>()(
           blackjacks: 0,
           deviationsTaken: 0,
           tcBrackets: {
-            negative: { w: 0, l: 0, p: 0 },
+            deepNeg: { w: 0, l: 0, p: 0 },
+            neutral: { w: 0, l: 0, p: 0 },
             low: { w: 0, l: 0, p: 0 },
             mid: { w: 0, l: 0, p: 0 },
             high: { w: 0, l: 0, p: 0 },
+            veryHigh: { w: 0, l: 0, p: 0 },
           },
           shoePeakTCs: [],
         })),
@@ -251,7 +257,7 @@ export const useSessionStore = create<SessionState>()(
         // Bucket TC for bracket stats
         const tc = current.trueCount;
         const bracketKey: keyof TCBrackets =
-          tc <= 0 ? 'negative' : tc < 2 ? 'low' : tc < 4 ? 'mid' : 'high';
+          tc < -0.5 ? 'deepNeg' : tc < 0.5 ? 'neutral' : tc < 1.5 ? 'low' : tc < 2.5 ? 'mid' : tc < 3.5 ? 'high' : 'veryHigh';
         const tcField: 'w' | 'l' | 'p' =
           outcome === 'push' ? 'p'
             : (outcome === 'loss' || outcome === 'surrender') ? 'l'
@@ -291,7 +297,7 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: 'card-counter-session',
-      version: 5,
+      version: 6,
       migrate: (persisted: any, version: number) => {
         if (version < 2) {
           persisted = {
@@ -313,6 +319,20 @@ export const useSessionStore = create<SessionState>()(
         }
         if (version < 5) {
           persisted = { ...persisted, shoePeakTCs: [] };
+        }
+        if (version < 6) {
+          // Migrate 4-bracket → 6-bracket. Old data can't be split, so zero-fill new brackets.
+          persisted = {
+            ...persisted,
+            tcBrackets: {
+              deepNeg: { w: 0, l: 0, p: 0 },
+              neutral: { w: 0, l: 0, p: 0 },
+              low: { w: 0, l: 0, p: 0 },
+              mid: { w: 0, l: 0, p: 0 },
+              high: { w: 0, l: 0, p: 0 },
+              veryHigh: { w: 0, l: 0, p: 0 },
+            },
+          };
         }
         return persisted;
       },

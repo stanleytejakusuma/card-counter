@@ -203,7 +203,7 @@ export function CompactCountStrip() {
         {/* Right: Bet */}
         <div className="text-right">
           <div className="text-[10px] uppercase tracking-widest text-neutral-600">BET</div>
-          <div className={`text-2xl font-bold font-mono leading-none ${bet.hasEdge ? 'text-green-300' : effectiveBet <= minBet ? 'text-neutral-600' : 'text-neutral-300'}`}>
+          <div className={`text-2xl font-bold font-mono leading-none ${bet.hasEdge ? 'text-green-300' : effectiveBet <= minBet ? 'text-neutral-600' : effectiveBet <= 10 ? 'text-neutral-300' : 'text-amber-300'}`}>
             {formatCurrency(effectiveBet)}
           </div>
           <span
