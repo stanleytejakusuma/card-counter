@@ -108,11 +108,6 @@ export function CardButtons() {
     useGameStore.getState().undoLastCard();
   }
 
-  function handleNewShoe() {
-    useGameStore.getState().newShoe();
-    useSessionStore.getState().incrementShoes();
-  }
-
   function handleNext() {
     const game = useGameStore.getState();
     const playOrder = game._observeRound
@@ -335,10 +330,9 @@ export function CardButtons() {
         ))}
       </div>
 
-      {/* Action buttons — 4-col grid, layout varies by phase */}
-      <div className="grid grid-cols-4 gap-1.5">
+      {/* Action buttons — 3-col grid, layout varies by phase */}
+      <div className="grid grid-cols-3 gap-1.5">
         {handPhase === 'table' ? (
-          /* Table phase: End Round (x2) + Undo + New Shoe */
           <>
             <button
               onClick={handleEndRound}
@@ -352,15 +346,8 @@ export function CardButtons() {
             >
               Undo
             </button>
-            <button
-              onClick={handleNewShoe}
-              className="bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
-            >
-              New Shoe
-            </button>
           </>
         ) : activeSeatReady ? (
-          /* Active seat ready: Next (x2) + Undo + New Shoe */
           <>
             <button
               onClick={handleNext}
@@ -374,15 +361,8 @@ export function CardButtons() {
             >
               Undo
             </button>
-            <button
-              onClick={handleNewShoe}
-              className="bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all"
-            >
-              New Shoe
-            </button>
           </>
         ) : (
-          /* Idle / deal mode: Observe + Undo + New Shoe */
           <>
             {playerSeatNumbers.length === 0 && occupiedSeatNumbers.length > 0 && (
               <button
@@ -394,15 +374,9 @@ export function CardButtons() {
             )}
             <button
               onClick={handleUndo}
-              className={`${(playerSeatNumbers.length > 0 || occupiedSeatNumbers.length === 0) ? 'col-span-2 ' : ''}bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all`}
+              className={`${(playerSeatNumbers.length > 0 || occupiedSeatNumbers.length === 0) ? 'col-span-3' : 'col-span-2'} bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all`}
             >
               Undo
-            </button>
-            <button
-              onClick={handleNewShoe}
-              className={`${(playerSeatNumbers.length > 0 || occupiedSeatNumbers.length === 0) ? 'col-span-2 ' : ''}bg-neutral-800/50 border border-neutral-700 rounded-lg py-2.5 text-xs font-bold text-neutral-400 uppercase hover:bg-neutral-700/50 hover:border-neutral-500 active:scale-95 transition-all`}
-            >
-              New Shoe
             </button>
           </>
         )}

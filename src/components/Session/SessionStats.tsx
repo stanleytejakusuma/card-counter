@@ -17,14 +17,16 @@ export function SessionStats() {
   const pnlColor = pnl > 0 ? 'text-green-400' : pnl < 0 ? 'text-red-400' : 'text-neutral-500';
 
   return (
-    <div className="flex items-center justify-between text-[11px] px-1 py-0.5">
-      <span className={pnlColor}>{pnl >= 0 ? '+' : ''}{formatCurrency(pnl)}</span>
-      <span className="text-neutral-500">{winRate.toFixed(0)}%W</span>
-      <span className="text-neutral-500">{formatCurrency(Math.round(hourlyRate))}/h</span>
-      <span className="text-neutral-500">{Math.round(handsPerHour)}/h</span>
-      {shoesPlayed > 0 && (
-        <span className="text-neutral-500">{handsPerShoe.toFixed(0)}/shoe</span>
-      )}
+    <div className="px-1 py-0.5 space-y-0.5">
+      <div className="flex items-center justify-between text-sm">
+        <span className={`font-bold font-mono ${pnlColor}`}>{pnl >= 0 ? '+' : ''}{formatCurrency(pnl)}</span>
+        <span className="text-neutral-500 text-xs">{winRate.toFixed(0)}% W</span>
+      </div>
+      <div className="flex items-center justify-between text-[11px] text-neutral-600">
+        <span>{formatCurrency(Math.round(hourlyRate))}/h</span>
+        <span>{Math.round(handsPerHour)} hands/h</span>
+        {shoesPlayed > 0 && <span>{handsPerShoe.toFixed(0)}/shoe</span>}
+      </div>
     </div>
   );
 }

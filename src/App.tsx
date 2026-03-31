@@ -5,7 +5,6 @@ import { ShoeProgress } from './components/Session/ShoeProgress.js';
 import { SessionStats } from './components/Session/SessionStats.js';
 import { CompactCountStrip } from './components/HUD/CompactCountStrip.js';
 import { RunningCount } from './components/HUD/RunningCount.js';
-import { DecksRemaining } from './components/HUD/DecksRemaining.js';
 import { HandDisplay } from './components/Input/HandDisplay.js';
 import { CardFeedback } from './components/Input/CardFeedback.js';
 import { CardButtons } from './components/Input/CardButtons.js';
@@ -66,24 +65,19 @@ export default function App() {
           <SessionStats />
         </div>
 
-        {/* CENTER: Input zone — vertically centered in remaining space */}
+        {/* CENTER: Decision info + input zone */}
         <div className="flex-1 flex flex-col justify-center min-h-0 overflow-y-auto space-y-2">
           <CompactCountStrip />
-          <CardButtons />
-          <CardFeedback />
           <InsuranceIndicator />
           <HandDisplay />
+          <CardFeedback />
+          <div className="border-t border-neutral-800" />
+          <CardButtons />
         </div>
 
-        {/* BOTTOM: Secondary stats */}
+        {/* BOTTOM: RC only */}
         <div className="flex-shrink-0 pt-1">
-          <div className="flex items-center justify-between text-sm border border-neutral-800 rounded-lg px-3 py-1.5">
-            <RunningCount />
-            <DecksRemaining />
-          </div>
-          <div className="text-center text-neutral-700 text-[10px] mt-1">
-            Deal → Play → Table → End Round
-          </div>
+          <RunningCount />
         </div>
       </HUDLayout>
     </>

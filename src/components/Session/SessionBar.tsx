@@ -3,6 +3,11 @@ import { useSessionStore } from '../../stores/sessionStore.js';
 import { useGameStore } from '../../stores/gameStore.js';
 import { formatCurrency, formatElapsedTime } from '../../utils/formatters.js';
 
+function handleNewShoe() {
+  useGameStore.getState().newShoe();
+  useSessionStore.getState().incrementShoes();
+}
+
 export function SessionBar() {
   const { bankroll, startingBankroll, handsPlayed, shoesPlayed, sessionStartTime } = useSessionStore();
   const isWongedOut = useGameStore((s) => s.isWongedOut);
@@ -73,8 +78,16 @@ export function SessionBar() {
           <span className="ml-2">Shoes: <span className="font-mono text-neutral-300">{shoesPlayed}</span></span>
         )}
       </div>
-      <div className="text-neutral-500">
-        {sessionStartTime ? formatElapsedTime(sessionStartTime) : '0m'}
+      <div className="flex items-center gap-2">
+        <span className="text-neutral-500">
+          {sessionStartTime ? formatElapsedTime(sessionStartTime) : '0m'}
+        </span>
+        <button
+          onClick={handleNewShoe}
+          className="text-[10px] text-neutral-600 uppercase font-semibold border border-neutral-800 rounded px-2 py-0.5 hover:text-amber-400 hover:border-amber-700 active:scale-95 transition-all"
+        >
+          New Shoe
+        </button>
       </div>
       {isWongedOut && (
         <div className="text-amber-500 font-semibold text-xs uppercase animate-pulse">
